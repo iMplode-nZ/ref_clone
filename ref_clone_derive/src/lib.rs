@@ -21,8 +21,9 @@ fn impl_ref_accessors(ast: &syn::DeriveInput) -> TokenStream {
             let Field { vis, ident, ty, .. } = x;
             let ident = format_ident!("get_{}", ident.as_ref().unwrap());
             let quote = quote! {
-                #vis fn #ident<'a, T: ::ref_clone::Ref<'a, Self>>(this: T) -> <T as ::higher::Lift<Self, #ty > >::Target1 {
-                    panic!("Testing")
+                #vis fn #ident<'a, T: ::ref_clone::Ref<'a, Self, #ty>>(this: T) -> <T as ::ref_clone::HKT<#ty>>::To {
+                    panic!("Testing");
+                    todo!()
                 }
             };
             println!("{}", quote);
