@@ -1,0 +1,13 @@
+[package]
+name = "ref_clone_derive"
+version = "0.1.0"
+authors = ["iMplode nZ <rg@youxplode.com>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "1.0.39"
+quote = "1.0.7"
+ref_clone = { path = "../ref_clone/" }

@@ -1,0 +1,2 @@
+[workspace]
+members = ["ref_clone/", "ref_clone_derive/", "ref_clone_test/"]

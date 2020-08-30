@@ -1,0 +1,11 @@
+[package]
+name = "ref_clone"
+version = "0.1.0"
+authors = ["iMplode nZ <rg@youxplode.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+higher = "0.1.1"
+# higher-derive = "0.1.1" # Not needed as it does not have support for lifetimes

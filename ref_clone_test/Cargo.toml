@@ -1,0 +1,10 @@
+[package]
+name = "ref_clone_test"
+version = "0.1.0"
+authors = ["iMplode nZ <rg@youxplode.com>"]
+edition = "2018"
+
+[dependencies]
+ref_clone = { path = "../ref_clone/" }
+ref_clone_derive = { path = "../ref_clone_derive/" }
+higher = "0.1.1"
