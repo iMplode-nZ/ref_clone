@@ -19,14 +19,15 @@ fn impl_ref_accessors(ast: &syn::DeriveInput) -> TokenStream {
         let data = data.named.iter();
         let interior = data.map(|x| {
             let Field { vis, ident, ty, .. } = x;
-            let ident = format_ident!("get_{}", ident.as_ref().unwrap());
+            let fn_ident = format_ident!("get_{}", ident.as_ref().unwrap());
             let quote = quote! {
-                #vis fn #ident<'a, T: ::ref_clone::Ref<'a, Self, #ty>>(this: T) -> <T as ::ref_clone::HKT<#ty>>::To {
-                    panic!("Testing");
-                    todo!()
+                #vis fn #fn_ident<'a, T: ::ref_clone::Ref<'a, Self, #ty>>(this: T) -> <T as ::ref_clone::HKT<#ty>>::To {
+                    match this.ty() {
+                        false => ::ref_clone::Borrow(&this.to_borrow().#ident),
+                        true => ::ref_clone::BorrowMut(unsafe { (&this.to_borrow().#ident as *const #ty as *mut #ty).as_ref().unwrap()}),
+                    }
                 }
             };
-            println!("{}", quote);
             quote
         });
         let gen = quote! {
@@ -34,6 +35,7 @@ fn impl_ref_accessors(ast: &syn::DeriveInput) -> TokenStream {
                 #(#interior)*
             }
         };
+        println!("{}", gen);
         gen.into()
     } else {
         panic!("Can not use RefAccessors on a non-strict type.");
