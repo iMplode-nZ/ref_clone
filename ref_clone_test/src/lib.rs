@@ -3,13 +3,13 @@ extern crate ref_clone_derive;
 
 #[cfg(test)]
 mod tests {
-    use ref_clone::Ref;
+    use ref_clone::*;
     // #[derive(RefAccessors)]
     struct Foo {
         pub x: i64,
         y: Vec<u32>,
     }
-    impl Foo {
+    /*impl Foo {
         pub fn get_x<'a, T: ::ref_clone::Ref<'a, Self, i64>>(
             this: T,
         ) -> <T as ::ref_clone::HKT<i64>>::To {
@@ -34,6 +34,25 @@ mod tests {
                 }),
             }
         }
+    }*/
+
+    fn test<'a, T: FooRef<'a, U> + Ref<'a, Foo, U> + ref_clone::HKT<i64>, U: 'a>(a: T) -> <T as ::ref_clone::HKT<i64>>::To {
+        a.get_x()
+    }
+
+    trait FooRef<'a, U: 'a>: Ref<'a, Foo, U> {
+        fn get_x(self) -> <Self as ::ref_clone::HKT<i64>>::To where Self: ref_clone::HKT<i64>;
+        fn get_y(self) -> <Self as ::ref_clone::HKT<Vec<u32>>>::To where Self: ref_clone::HKT<Vec<u32>>;
+    }
+
+    impl<'a, U: 'a> FooRef<'a, U> for Borrow<'a, Foo> {
+        fn get_x(self) -> <Self as ref_clone::HKT<i64>>::To where Self: ref_clone::HKT<i64> { Borrow::new(&self.to_borrow().x).into() }
+        fn get_y(self) -> <Self as ref_clone::HKT<std::vec::Vec<u32>>>::To where Self: ref_clone::HKT<Vec<u32>> { Borrow::new(&self.to_borrow().y).into() }
+    }
+
+    impl<'a, U: 'a> FooRef<'a, U> for BorrowMut<'a, Foo> {
+        fn get_x(self) -> <Self as ref_clone::HKT<i64>>::To where Self: ref_clone::HKT<i64> { BorrowMut::new(&mut self.to_borrow_mut().x).into() }
+        fn get_y(self) -> <Self as ref_clone::HKT<std::vec::Vec<u32>>>::To where Self: ref_clone::HKT<Vec<u32>> { BorrowMut::new(&mut self.to_borrow_mut().y).into() }
     }
 
     /*fn do_thing<'a, T: Ref<'a, Foo, i64>, U>(x: T) -> impl Ref<'a, i64, U>

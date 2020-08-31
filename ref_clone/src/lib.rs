@@ -3,14 +3,16 @@ pub trait HKT<Interior> {
     type To;
 }
 
-pub trait Ref<'a, T, U> : HKT<U> + private::Sealed {
+pub trait Ref<'a, T, U: 'a> : HKT<U> + private::Sealed {
     fn to_borrow(self) -> &'a T;
     fn ty(self) -> bool;
 }
 
-pub trait RefMut<'a, T, U> : Ref<'a, T, U> {
+pub trait RefMut<'a, T, U: 'a> : Ref<'a, T, U> + HKT<U> + private::Sealed {
     fn to_borrow_mut(self) -> &'a mut T;
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Borrow<'a, T>(pub &'a T);
 
 impl<'a, F, T: 'a> HKT<T> for Borrow<'a, F> {
@@ -29,8 +31,14 @@ impl<'a, T> Borrow<'a, T> {
     pub fn new(x: &'a T) -> Self {
         Borrow(x)
     }
+
+    pub fn into<S>(self) -> <Borrow<'a, S> as HKT<T>>::To {
+        self
+    }
 }
 
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct BorrowMut<'a, T>(pub &'a mut T);
 
 impl<'a, F, T: 'a> HKT<T> for BorrowMut<'a, F> {
@@ -55,6 +63,10 @@ impl<'a, T, U: 'a> RefMut<'a, T, U> for BorrowMut<'a, T> {
 impl<'a, T> BorrowMut<'a, T> {
     pub fn new(x: &'a mut T) -> Self {
         BorrowMut(x)
+    }
+
+    pub fn into<S>(self) -> <BorrowMut<'a, S> as HKT<T>>::To {
+        self
     }
 }
 
