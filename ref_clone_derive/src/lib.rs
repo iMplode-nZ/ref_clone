@@ -20,20 +20,22 @@ fn impl_ref_accessors(ast: &syn::DeriveInput) -> TokenStream {
         let interior = data.map(|x| {
             let Field { vis, ident, ty, .. } = x;
             let fn_ident = format_ident!("get_{}", ident.as_ref().unwrap());
+            let tr_ident = format_ident!("Ref{}{}", name, ident.as_ref().unwrap());
+            println!("{}", tr_ident);
             let quote = quote! {
-                #vis fn #fn_ident<'a, T: ::ref_clone::Ref<'a, Self, #ty>>(this: T) -> <T as ::ref_clone::HKT<#ty>>::To {
-                    match this.ty() {
-                        false => ::ref_clone::Borrow(&this.to_borrow().#ident),
-                        true => ::ref_clone::BorrowMut(unsafe { (&this.to_borrow().#ident as *const #ty as *mut #ty).as_ref().unwrap()}),
+                #vis trait #tr_ident<'a, T> {
+                    fn #fn_ident(self) -> Ref<'a, #ty, T>;
+                }
+                impl<'a, T> #tr_ident<'a, T> for Ref<'a, #name, T> {
+                    fn #fn_ident(self) -> Ref<'a, #ty, T> {
+                        unsafe { *(&&((*(&self.x as *const _ as *const &#name)).#ident) as *const _ as *const Ref<'a, #ty, T>) }
                     }
                 }
             };
             quote
         });
         let gen = quote! {
-            impl #name {
-                #(#interior)*
-            }
+            #(#interior)*
         };
         println!("{}", gen);
         gen.into()

@@ -1,72 +1,27 @@
-pub trait HKT<Interior> {
-    type From;
-    type To;
+use std::marker::PhantomData;
+
+pub struct Immutable<'a, T>(pub &'a T);
+pub struct Mutable<'a, T>(pub &'a mut T);
+pub type Mut<'a, T> = Mutable<'a, T>;
+
+pub struct Ref<'a, T, X = Immutable<'a, T>> {
+    pub x: X,
+    _marker: PhantomData<&'a T>
 }
 
-pub trait Ref<'a, T, U: 'a> : HKT<U> + private::Sealed {
-    fn to_borrow(self) -> &'a T;
-    fn ty(self) -> bool;
-}
-
-pub trait RefMut<'a, T, U: 'a> : Ref<'a, T, U> + HKT<U> + private::Sealed {
-    fn to_borrow_mut(self) -> &'a mut T;
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Borrow<'a, T>(pub &'a T);
-
-impl<'a, F, T: 'a> HKT<T> for Borrow<'a, F> {
-    type From = Borrow<'a, F>;
-    type To = Borrow<'a, T>;
-}
-
-impl<'a, T, U: 'a> Ref<'a, T, U> for Borrow<'a, T> {
-    fn to_borrow(self) -> &'a T {
-        self.0
-    }
-    fn ty(self) -> bool { false }
-}
-
-impl<'a, T> Borrow<'a, T> {
-    pub fn new(x: &'a T) -> Self {
-        Borrow(x)
-    }
-
-    pub fn into<S>(self) -> <Borrow<'a, S> as HKT<T>>::To {
-        self
+impl<'a, T> Ref<'a, T, Immutable<'a, T>> {
+    pub fn to_borrow(self) -> &'a T {
+        self.x.0
     }
 }
 
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct BorrowMut<'a, T>(pub &'a mut T);
-
-impl<'a, F, T: 'a> HKT<T> for BorrowMut<'a, F> {
-    type From = BorrowMut<'a, F>;
-    type To = BorrowMut<'a, T>;
-}
-
-impl<'a, T, U: 'a> Ref<'a, T, U> for BorrowMut<'a, T> {
-    fn to_borrow(self) -> &'a T {
-        self.0
+impl<'a, T> Ref<'a, T, Mutable<'a, T>> {
+    pub fn to_borrow(self) -> &'a T {
+        self.x.0
     }
 
-    fn ty(self) -> bool { true }
-}
-
-impl<'a, T, U: 'a> RefMut<'a, T, U> for BorrowMut<'a, T> {
-    fn to_borrow_mut(self) -> &'a mut T {
-        self.0
-    }
-}
-
-impl<'a, T> BorrowMut<'a, T> {
-    pub fn new(x: &'a mut T) -> Self {
-        BorrowMut(x)
-    }
-
-    pub fn into<S>(self) -> <BorrowMut<'a, S> as HKT<T>>::To {
-        self
+    pub fn to_borrow_mut(self) -> &'a mut T {
+        self.x.0
     }
 }
 
@@ -75,6 +30,6 @@ mod private {
 
     pub trait Sealed {}
 
-    impl<T> Sealed for Borrow<'_, T> {}
-    impl<T> Sealed for BorrowMut<'_, T> {}
+    impl<T> Sealed for Immutable<'_, T> {}
+    impl<T> Sealed for Mutable<'_, T> {}
 }

@@ -1,70 +1,80 @@
-#[macro_use]
+/*#[macro_use]
 extern crate ref_clone_derive;
 
 #[cfg(test)]
 mod tests {
     use ref_clone::*;
-    // #[derive(RefAccessors)]
+    pub trait RefFoox<'a, T> {
+        fn get_x(self) -> Ref<'a, i64, T>;
+    }
+    impl<'a, T> RefFoox<'a, T> for Ref<'a, Foo, T> {
+        fn get_x(self) -> Ref<'a, i64, T> {
+            unsafe {
+                /* TODO: THIS DOES NOT WORK DUE TO THE TYPE PARAMETER INCLUDING THE TYPES OF THE OTHER STUFF. MAKE IMMUTABLE AND MUTABLE struct Immutable(); INSTEAD OF HAVING CONTENTS */
+                *(&&(*(&self.x as *const _ as *const &Foo)).x as *const _ as *const Ref<'a, i64, T>)
+            }
+        }
+    }
+    trait RefFooy<'a, T> {
+        fn get_y(self) -> Ref<'a, Vec<u32>, T>;
+    }
+    impl<'a, T> RefFooy<'a, T> for Ref<'a, Foo, T> {
+        fn get_y(self) -> Ref<'a, Vec<u32>, T> {
+            unsafe {
+                *(&&((*(&self.x as *const _ as *const &Foo)).y) as *const _
+                    as *const Ref<'a, Vec<u32>, T>)
+            }
+        }
+    }
+
+    //#[derive(RefAccessors)]
     struct Foo {
         pub x: i64,
         y: Vec<u32>,
     }
-    /*impl Foo {
-        pub fn get_x<'a, T: ::ref_clone::Ref<'a, Self, i64>>(
-            this: T,
-        ) -> <T as ::ref_clone::HKT<i64>>::To {
-            match this.ty() {
-                false => ::ref_clone::Borrow(&this.to_borrow().x),
-                true => ::ref_clone::BorrowMut(unsafe {
-                    (&this.to_borrow().x as *const i64 as *mut i64)
-                        .as_ref()
-                        .unwrap()
-                }),
-            }
+}
+*/
+pub trait FunctorShape {
+    unsafe fn map<A, B, F: Fn(A) -> B>(&self, a: *const (), f: F) -> *const ();
+}
+pub struct Functor<T, S: FunctorShape> {
+    x: S,
+    value: *const (),
+    _marker: std::marker::PhantomData<T>
+}
+
+impl<A, S: FunctorShape> Functor<A, S> {
+    pub fn map<B, F: Fn(A) -> B>(self, f: F) -> Functor<B, S> {
+        let value = unsafe { self.x.map(self.value, f) };
+        Functor {
+            x: self.x,
+            value,
+            _marker: std::marker::PhantomData
         }
-        fn get_y<'a, T: ::ref_clone::Ref<'a, Self, Vec<u32>>>(
-            this: T,
-        ) -> <T as ::ref_clone::HKT<Vec<u32>>>::To {
-            match this.ty() {
-                false => ::ref_clone::Borrow(&this.to_borrow().y),
-                true => ::ref_clone::BorrowMut(unsafe {
-                    (&this.to_borrow().y as *const Vec<u32> as *mut Vec<u32>)
-                        .as_ref()
-                        .unwrap()
-                }),
-            }
+    }
+
+    pub unsafe fn new<X>(a: X, x: S) -> Functor<A, S> {
+        let value = std::boxed::Box::<X>::into_raw(Box::new(a)) as *const ();
+        Functor {
+            x,
+            value,
+            _marker: std::marker::PhantomData
         }
-    }*/
-
-    fn test<'a, T: FooRef<'a, U> + Ref<'a, Foo, U> + ref_clone::HKT<i64>, U: 'a>(a: T) -> <T as ::ref_clone::HKT<i64>>::To {
-        a.get_x()
     }
+}
 
-    trait FooRef<'a, U: 'a>: Ref<'a, Foo, U> {
-        fn get_x(self) -> <Self as ::ref_clone::HKT<i64>>::To where Self: ref_clone::HKT<i64>;
-        fn get_y(self) -> <Self as ::ref_clone::HKT<Vec<u32>>>::To where Self: ref_clone::HKT<Vec<u32>>;
+pub struct VecFunctor;
+
+impl FunctorShape for VecFunctor {
+    unsafe fn map<A, B, F: Fn(A) -> B>(&self, a: *const (), f: F) -> *const () {
+        std::mem::transmute(&std::mem::transmute_copy::<_, Vec<A>>(a.as_ref().unwrap()).into_iter().map(f).collect::<Vec<B>>())
     }
+}
 
-    impl<'a, U: 'a> FooRef<'a, U> for Borrow<'a, Foo> {
-        fn get_x(self) -> <Self as ref_clone::HKT<i64>>::To where Self: ref_clone::HKT<i64> { Borrow::new(&self.to_borrow().x).into() }
-        fn get_y(self) -> <Self as ref_clone::HKT<std::vec::Vec<u32>>>::To where Self: ref_clone::HKT<Vec<u32>> { Borrow::new(&self.to_borrow().y).into() }
+impl VecFunctor {
+    pub fn to_functor<T>(a: Vec<T>) -> Functor<T, VecFunctor> {
+        unsafe {
+            Functor::new(a, VecFunctor)
+        }
     }
-
-    impl<'a, U: 'a> FooRef<'a, U> for BorrowMut<'a, Foo> {
-        fn get_x(self) -> <Self as ref_clone::HKT<i64>>::To where Self: ref_clone::HKT<i64> { BorrowMut::new(&mut self.to_borrow_mut().x).into() }
-        fn get_y(self) -> <Self as ref_clone::HKT<std::vec::Vec<u32>>>::To where Self: ref_clone::HKT<Vec<u32>> { BorrowMut::new(&mut self.to_borrow_mut().y).into() }
-    }
-
-    /*fn do_thing<'a, T: Ref<'a, Foo, i64>, U>(x: T) -> impl Ref<'a, i64, U>
-    where
-        <T as ref_clone::HKT<i64>>::To: ref_clone::Ref<'a, i64, U>,
-    {
-        Foo::get_x(x)
-    }
-
-    #[test]
-    fn prob_throws() {
-        let mut x = Foo { x: 10, y: vec![30] };
-        let x = Foo::get_y(ref_clone::Borrow::new(&mut x));
-    }*/
 }
