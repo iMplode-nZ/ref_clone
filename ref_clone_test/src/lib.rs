@@ -1,9 +1,7 @@
-#[macro_use]
-extern crate ref_clone_derive;
-
 #[cfg(test)]
 mod tests {
     use ref_clone::*;
+    use ref_clone_derive::RefAccessors;
 
     #[derive(RefAccessors)]
     struct Foo {
@@ -19,6 +17,13 @@ mod tests {
     fn test() {
         let foo = Foo { x: 10, y: vec![3] };
         let r = Immutable::new(&foo);
-        println!("{:?}", get_foo_child(r));
+        assert_eq!(*get_foo_child(r).to_borrow(), 10);
+    }
+
+    #[test]
+    fn test_mut() {
+        let mut foo = Foo { x: 13, y: vec![3] };
+        let r = Mutable::new(&mut foo);
+        assert_eq!(*get_foo_child(r).to_borrow(), 13);
     }
 }
