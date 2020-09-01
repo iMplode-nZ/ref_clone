@@ -1,9 +1,9 @@
 pub trait FunctorShape {
-    unsafe fn map<A, B, F: Fn(A) -> B>(&self, a: *const (), f: F) -> *const ();
+    unsafe fn map<A, B, F: Fn(A) -> B>(&self, a: *mut (), f: F) -> *mut ();
 }
 pub struct Functor<T, S: FunctorShape> {
     x: S,
-    value: *const (),
+    value: *mut (),
     _marker: std::marker::PhantomData<T>
 }
 
@@ -18,7 +18,7 @@ impl<A, S: FunctorShape> Functor<A, S> {
     }
 
     pub unsafe fn new<X>(a: X, x: S) -> Functor<A, S> {
-        let value = std::boxed::Box::<X>::into_raw(Box::new(a)) as *const ();
+        let value = Box::into_raw(Box::new(a)) as *mut ();
         Functor {
             x,
             value,
@@ -30,8 +30,8 @@ impl<A, S: FunctorShape> Functor<A, S> {
 pub struct VecFunctor;
 
 impl FunctorShape for VecFunctor {
-    unsafe fn map<A, B, F: Fn(A) -> B>(&self, a: *const (), f: F) -> *const () {
-        std::mem::transmute(&std::mem::transmute_copy::<_, Vec<A>>(a.as_ref().unwrap()).into_iter().map(f).collect::<Vec<B>>())
+    unsafe fn map<A, B, F: Fn(A) -> B>(&self, a: *mut (), f: F) -> *mut () {
+        Box::into_raw(Box::new(Box::from_raw(a as *mut Vec<A>).into_iter().map(f).collect::<Vec<B>>())) as *mut ()
     }
 }
 
@@ -41,4 +41,17 @@ impl VecFunctor {
             Functor::new(a, VecFunctor)
         }
     }
+
+    pub fn from_functor<T>(a: Functor<T, VecFunctor>) -> Vec<T> {
+        unsafe {
+            *Box::from_raw(a.value as *mut Vec<T>)
+        }
+    }
+}
+
+#[test]
+fn test_functor() {
+    let func = VecFunctor::to_functor(vec![1, 2, 3, 4]);
+    let b = func.map(|x| x.to_string());
+    println!("{:?}", VecFunctor::from_functor(b));
 }
