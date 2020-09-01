@@ -23,22 +23,20 @@ fn impl_ref_accessors(ast: &syn::DeriveInput) -> TokenStream {
         let data = data.named.iter();
         let interior = data.map(|x| {
             let Field { vis, ident, ty, .. } = x;
-            let fn_ident = format_ident!("get_{}", ident.as_ref().unwrap());
+            let fn_ident = format_ident!("{}", ident.as_ref().unwrap());
             let tr_ident = format_ident!("Ref{}Fn{}", name, ident.as_ref().unwrap());
             let quote = quote! {
-                #vis trait #tr_ident<'a, T: RefType> {
-                    fn #fn_ident(self) -> Ref<'a, #ty, T>;
+                #vis trait #tr_ident<'a, T: ::ref_clone::RefType> {
+                    fn #fn_ident(self) -> ::ref_clone::Ref<'a, #ty, T>;
                 }
-                impl<'a, T: RefType> #tr_ident<'a, T> for Ref<'a, #name, T> {
-                    fn #fn_ident(self) -> Ref<'a, #ty, T> {
+                impl<'a, T: ::ref_clone::RefType> #tr_ident<'a, T> for ::ref_clone::Ref<'a, #name, T> {
+                    fn #fn_ident(self) -> ::ref_clone::Ref<'a, #ty, T> {
                         let value = &self.value.#ident;
-                        Ref {
-                            ty: self.ty,
-                            value,
-                        }
+                        unsafe { ::ref_clone::Ref::new(self.ty, value) }
                     }
                 }
             };
+            println!("{}", quote);
             quote
         });
         let gen = quote! {
