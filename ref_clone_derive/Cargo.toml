@@ -14,3 +14,4 @@ proc-macro = true
 syn = "1.0.39"
 quote = "1.0.7"
 ref_clone = { path = "../ref_clone/" }
+proc-macro2 = "1.0.19"

@@ -10,11 +10,11 @@ mod tests {
     }
 
     fn get_foo_child<S: RefType>(a: Ref<'_, Foo, S>) -> Ref<'_, i64, S> {
-        a.x()
+        a.to_ref().x
     }
 
     fn get_foo_vec_child<S: RefType>(a: Ref<'_, Foo, S>) -> Ref<'_, Vec<u32>, S> {
-        a.y()
+        a.to_ref().y
     }
 
     #[test]
@@ -51,5 +51,3 @@ mod tests {
         );
     }
 }
-
-mod functor;

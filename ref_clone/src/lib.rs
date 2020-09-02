@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 /// The type of the borrow.
 ///
 /// This may either be Immutable or Mutable.
-pub trait RefType: private::Sealed {}
+pub trait RefType: private::Sealed + Copy {}
 
 /// The Ref type. Third type parameter is the type of the Borrow.
 #[derive(PartialEq, Eq)]
@@ -44,10 +44,10 @@ impl<'a, T> Ref<'a, T, Mutable> {
 }
 
 /// Immutable Reference type.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Immutable;
 // Mutable Reference type.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Mutable;
 
 impl RefType for Immutable {}
