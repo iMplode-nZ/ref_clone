@@ -3,7 +3,7 @@ mod tests {
     use ref_clone::*;
     use ref_clone_derive::RefAccessors;
 
-    #[derive(RefAccessors)]
+    #[RefAccessors]
     struct Foo {
         pub x: i64,
         y: Vec<u32>,

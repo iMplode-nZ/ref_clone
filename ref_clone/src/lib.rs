@@ -11,14 +11,13 @@ pub trait RefType: private::Sealed + Copy {}
 
 /// The Ref type. Third type parameter is the type of the Borrow.
 #[derive(PartialEq, Eq)]
+#[repr(transparent)]
 pub struct Ref<'a, T, S: RefType> {
-    pub ty: S,
     pub value: &'a T,
-    _no_pub_constructor: PhantomData<()>,
+    ty: PhantomData<S>,
 }
 
 impl<'a, T, S: RefType> Ref<'a, T, S> {
-
     /// Converts the Ref into a borrow. This works for both mutable and immutable references.
     #[inline(always)]
     pub fn to_borrow(self) -> &'a T {
@@ -26,11 +25,10 @@ impl<'a, T, S: RefType> Ref<'a, T, S> {
     }
 
     #[inline(always)]
-    pub unsafe fn new(ty: S, value: &'a T) -> Ref<'a, T, S> {
+    pub unsafe fn new(value: &'a T) -> Ref<'a, T, S> {
         Ref {
-            ty,
             value,
-            _no_pub_constructor: PhantomData,
+            ty: PhantomData,
         }
     }
 }
@@ -59,9 +57,8 @@ impl Immutable {
     #[inline(always)]
     pub fn new<'a, T>(t: &'a T) -> Ref<'a, T, Immutable> {
         Ref {
-            ty: Immutable,
             value: t,
-            _no_pub_constructor: PhantomData,
+            ty: PhantomData,
         }
     }
 }
@@ -71,9 +68,8 @@ impl Mutable {
     #[inline(always)]
     pub fn new<'a, T>(t: &'a mut T) -> Ref<'a, T, Mutable> {
         Ref {
-            ty: Mutable,
             value: t,
-            _no_pub_constructor: PhantomData,
+            ty: PhantomData,
         }
     }
 }
@@ -94,6 +90,10 @@ impl<'a, T: std::fmt::Display, S: RefType> std::fmt::Display for Ref<'a, T, S> {
     ) -> std::result::Result<(), std::fmt::Error> {
         self.value.fmt(formatter)
     }
+}
+
+pub trait RefAccessors<Wrapped> {
+    fn to_ref(self) -> Wrapped;
 }
 
 mod private {
