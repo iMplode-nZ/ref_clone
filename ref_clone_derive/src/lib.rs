@@ -1,22 +1,25 @@
-use proc_macro2::Span;
-use syn::parse::Parser;
-use syn::token::Gt;
-use syn::token::Lt;
-
+use quote::ToTokens;
 use proc_macro::TokenStream;
-use punctuated::Punctuated;
+use proc_macro2::Span;
+
 use quote::format_ident;
 use quote::quote;
+
 use syn::*;
+use Data::Enum;
 use Data::Struct;
 use Fields::Named;
+
+use parse::Parser;
+use punctuated::Punctuated;
+use token::Gt;
+use token::Lt;
 
 #[proc_macro_attribute]
 #[allow(non_snake_case)]
 pub fn RefAccessors(_attr: TokenStream, mut input: TokenStream) -> TokenStream {
     let ast = syn::parse(input.clone()).unwrap();
     let out = impl_ref_accessors(&ast);
-    println!("{}", out);
     input.extend::<TokenStream>(out.into());
     input
 }
@@ -24,7 +27,7 @@ pub fn RefAccessors(_attr: TokenStream, mut input: TokenStream) -> TokenStream {
 /// First TokenStream is the Struct definition (without the outside wrapper). Second TokenStream is the generator of it.
 fn gen_named(
     ast: &FieldsNamed,
-    struct_path: &Ident,
+    ref_path: &impl ToTokens,
     lt: &Lifetime,
     ref_type: &Ident,
 ) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
@@ -59,7 +62,7 @@ fn gen_named(
         }
     });
     let struct_gen = quote! {
-        { #(#match_gen)* } => #struct_path {
+        { #(#match_gen)* } => #ref_path {
             #(#interior_gen)*
         }
     };
@@ -68,12 +71,12 @@ fn gen_named(
 
 fn gen(
     ast: &Fields,
-    struct_path: &Ident,
+    ref_path: &impl ToTokens,
     lt: &Lifetime,
     ref_type: &Ident,
 ) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
     match ast {
-        Named(data) => gen_named(data, struct_path, lt, ref_type),
+        Named(data) => gen_named(data, ref_path, lt, ref_type),
         _ => panic!("Gen is not implemented yet"),
     }
 }
@@ -87,6 +90,8 @@ struct RefGenerics<'a> {
 }
 
 fn compute_generics<'a>(name: &'a Ident, start: &'a Generics) -> RefGenerics<'a> {
+    // Names are inverted. Names which are uppercase are identifiers while lowercase names are types.
+    // (Yes, I know this is bad, but it's to avoid name collisions by disregarding every single naming convention.)
     let lt = Lifetime::new(&format!("'__Ref__Access__{}", name)[..], Span::call_site());
     let ref_type = format_ident!("__{}__ref_type", name);
     let ref_path = format_ident!("{}Ref", name);
@@ -119,41 +124,28 @@ fn compute_generics<'a>(name: &'a Ident, start: &'a Generics) -> RefGenerics<'a>
 
 fn impl_ref_accessors(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
     let name = &ast.ident;
+    let vis = &ast.vis;
+
+    let RefGenerics {
+        ref_path,
+        ref_type,
+        lt,
+        generics,
+        ref_types,
+    } = compute_generics(name, &ast.generics);
+
+    let (implgen, typegen, where_clause) = generics.split_for_impl();
+
     match &ast.data {
         Struct(DataStruct { fields, .. }) => {
-            // Names are inverted. Names which are uppercase are identifiers while lowercase names are types.
-            // (Yes, I know this is bad, but it's to avoid name collisions by disregarding every single type rule.)
-            let lt = Lifetime::new(&format!("'__Ref__Access__{}", name)[..], Span::call_site());
-            let ref_type = format_ident!("__{}__ref_type", name);
-            let struct_path = format_ident!("{}Ref", name);
-            let generics = Punctuated::<syn::GenericParam, Token!(,)>::parse_terminated
-                .parse2(quote! {
-                    #lt, #ref_type : ::ref_clone::RefType
-                })
-                .unwrap();
-            let mut clone = ast.generics.params.clone();
-            clone.extend(generics);
-            let generics = Generics {
-                lt_token: Some(Lt {
-                    spans: [Span::call_site()],
-                }),
-                gt_token: Some(Gt {
-                    spans: [Span::call_site()],
-                }),
-                params: clone,
-                where_clause: ast.generics.where_clause.clone(),
-            };
-            let (implgen, typegen, where_clause) = generics.split_for_impl();
-            let ref_types = ast.generics.split_for_impl().1;
-
-            let (def, gen) = gen(fields, &struct_path, &lt, &ref_type);
+            let (def, gen) = gen(fields, &ref_path, &lt, &ref_type);
             quote! {
                 #[allow(non_camel_case_types, non_snake_case)]
-                struct #struct_path #implgen #def
+                #vis struct #ref_path #implgen #def
                 #[allow(non_camel_case_types, non_snake_case)]
-                impl #implgen ::ref_clone::RefAccessors<#struct_path #typegen> for Ref<#lt, #name #ref_types, #ref_type> #where_clause {
+                impl #implgen ::ref_clone::RefAccessors<#ref_path #typegen> for Ref<#lt, #name #ref_types, #ref_type> #where_clause {
                     #[inline(always)]
-                    fn to_ref(self) -> #struct_path #typegen {
+                    fn to_ref(self) -> #ref_path #typegen {
                         match self.value {
                             #name #gen
                         }
@@ -161,12 +153,37 @@ fn impl_ref_accessors(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 }
             }
         }
-        /*Enum(DataEnum {
-            variants,
-            ..
-        }) => {
-            let data = variants.iter();
-        },*/
+        Enum(DataEnum { variants, .. }) => {
+            let variants = variants.iter();
+            let (def, gen) = variants.map(|x| {
+                let Variant { fields, ident, .. } = x;
+                let (def, gen) = gen(fields, &quote! {
+                    #ref_path :: #ident
+                }, &lt, &ref_type);
+                (quote! {
+                    #ident #def ,
+                }, quote! {
+                    #name :: #ident #gen,
+                })
+            }).unzip::<_, _, Vec<_>, Vec<_>>();
+            let def = def.iter();
+            let gen = gen.iter();
+            quote! {
+                #[allow(non_camel_case_types, non_snake_case)]
+                #vis enum #ref_path #implgen {
+                    #(#def)*
+                }
+                #[allow(non_camel_case_types, non_snake_case)]
+                impl #implgen ::ref_clone::RefAccessors<#ref_path #typegen> for Ref<#lt, #name #ref_types, #ref_type> #where_clause {
+                    #[inline(always)]
+                    fn to_ref(self) -> #ref_path #typegen {
+                        match self.value {
+                            #(#gen)*
+                        }
+                    }
+                }
+            }
+        }
         _ => {
             panic!("Can not use RefAccessors with a union.");
         }

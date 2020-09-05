@@ -55,13 +55,13 @@ mod tests {
     struct FooGen<T> {
         pub a: T,
     }
-
+    #[RefAccessors]
     enum Enum<T> {
         Variant { x: u8 },
         OtherVariant { y: T },
     }
 
-    enum RefEnum<'a, T, A: ::ref_clone::RefType> {
+    /*enum RefEnum<'a, T, A: ::ref_clone::RefType> {
         Variant { x: Ref<'a, u8, A> },
         OtherVariant { y: Ref<'a, T, A> },
     }
@@ -77,5 +77,5 @@ mod tests {
                 },
             }
         }
-    }
+    }*/
 }
