@@ -50,4 +50,44 @@ mod tests {
             3
         );
     }
+
+    #[RefAccessors]
+    struct FooGen<T> {
+        pub a: T
+    }
+
+    enum Enum<T> {
+        Variant {
+            x: u8,
+        },
+        OtherVariant {
+            y: T,
+        }
+    }
+
+    enum RefEnum<'a, T, A: ::ref_clone::RefType> {
+        Variant {
+            x: Ref<'a, u8, A>
+        },
+        OtherVariant {
+            y: Ref<'a, T, A>
+        }
+    }
+
+    impl<'a, A: ::ref_clone::RefType, T> RefAccessors<RefEnum<'a, T, A>> for Ref<'a, Enum<T>, A> {
+        fn to_ref(self) -> RefEnum<'a, T, A> {
+            match self.value {
+                Enum::Variant { x } => {
+                    RefEnum::Variant {
+                        x: unsafe { Ref::new(x) }
+                    }
+                },
+                Enum::OtherVariant { y } => {
+                    RefEnum::OtherVariant {
+                        y: unsafe { Ref::new(y) }
+                    }
+                }
+            }
+        }
+    }
 }
