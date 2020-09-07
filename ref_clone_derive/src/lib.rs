@@ -112,7 +112,7 @@ fn gen(
     match ast {
         Named(data) => gen_named(data, ref_path, lt, ref_type),
         Unnamed(data) => gen_unnamed(data, ref_path, lt, ref_type),
-        _ => panic!("Panic in function Gen: &Unit is not supported for RefAccessors yet."),
+        _ => panic!("Panic in function Gen: Unit types are not supported for RefAccessors."),
     }
 }
 
