@@ -1,6 +1,6 @@
-use quote::ToTokens;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
+use quote::ToTokens;
 
 use quote::format_ident;
 use quote::quote;
@@ -9,6 +9,7 @@ use syn::*;
 use Data::Enum;
 use Data::Struct;
 use Fields::Named;
+use Fields::Unnamed;
 
 use parse::Parser;
 use punctuated::Punctuated;
@@ -69,6 +70,39 @@ fn gen_named(
     (struct_def, struct_gen)
 }
 
+fn gen_unnamed(
+    ast: &FieldsUnnamed,
+    ref_path: &impl ToTokens,
+    lt: &Lifetime,
+    ref_type: &Ident,
+) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
+    let interior = ast.unnamed.iter().map(|x| {
+        let Field { vis, ty, .. } = x;
+        quote! {
+            #vis Ref<#lt, #ty, #ref_type>,
+        }
+    });
+    let struct_def = quote! {
+        ( #(#interior)* )
+    };
+    let interior_gen = ast.unnamed.iter().enumerate().map(|(i, _)| {
+        let ident = format_ident!("_{}", i);
+        quote! {
+            unsafe { ::ref_clone::Ref::new(#ident) }
+        }
+    });
+    let match_gen = ast.unnamed.iter().enumerate().map(|(i, _)| {
+        let ident = format_ident!("_{}", i);
+        quote! {
+            #ident,
+        }
+    });
+    let struct_gen = quote! {
+        (#(#match_gen)*) => #ref_path(#(#interior_gen)*)
+    };
+    (struct_def, struct_gen)
+}
+
 fn gen(
     ast: &Fields,
     ref_path: &impl ToTokens,
@@ -77,7 +111,8 @@ fn gen(
 ) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
     match ast {
         Named(data) => gen_named(data, ref_path, lt, ref_type),
-        _ => panic!("Gen is not implemented yet"),
+        Unnamed(data) => gen_unnamed(data, ref_path, lt, ref_type),
+        _ => panic!("Panic in function Gen: &Unit is not supported for RefAccessors yet."),
     }
 }
 
@@ -155,17 +190,27 @@ fn impl_ref_accessors(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
         }
         Enum(DataEnum { variants, .. }) => {
             let variants = variants.iter();
-            let (def, gen) = variants.map(|x| {
-                let Variant { fields, ident, .. } = x;
-                let (def, gen) = gen(fields, &quote! {
-                    #ref_path :: #ident
-                }, &lt, &ref_type);
-                (quote! {
-                    #ident #def ,
-                }, quote! {
-                    #name :: #ident #gen,
+            let (def, gen) = variants
+                .map(|x| {
+                    let Variant { fields, ident, .. } = x;
+                    let (def, gen) = gen(
+                        fields,
+                        &quote! {
+                            #ref_path :: #ident
+                        },
+                        &lt,
+                        &ref_type,
+                    );
+                    (
+                        quote! {
+                            #ident #def ,
+                        },
+                        quote! {
+                            #name :: #ident #gen,
+                        },
+                    )
                 })
-            }).unzip::<_, _, Vec<_>, Vec<_>>();
+                .unzip::<_, _, Vec<_>, Vec<_>>();
             let def = def.iter();
             let gen = gen.iter();
             quote! {
