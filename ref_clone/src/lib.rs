@@ -10,7 +10,7 @@ use std::marker::PhantomData;
 pub trait RefType: private::Sealed + Copy {}
 
 /// The Ref type. Third type parameter is the type of the Borrow.
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Ref<'a, T, S: RefType> {
     pub value: &'a T,
@@ -24,6 +24,10 @@ impl<'a, T, S: RefType> Ref<'a, T, S> {
         self.value
     }
 
+    /// UNSAFE. Do not use unless you know exactly what you are doing.
+    /// Use of this to create a Mutable reference (`Ref<'a, T, Mutable>`) is undefined behaviour.
+    ///
+    /// This is only public so that ref_clone_derive can call it.
     #[inline(always)]
     pub unsafe fn new(value: &'a T) -> Ref<'a, T, S> {
         Ref {
