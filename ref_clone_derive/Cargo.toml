@@ -13,5 +13,5 @@ proc-macro = true
 [dependencies]
 syn = "1.0.39"
 quote = "1.0.7"
-ref_clone = { path = "../ref_clone/" }
+ref_clone = "0.1.0"
 proc-macro2 = "1.0.19"
