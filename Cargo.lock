@@ -30,7 +30,7 @@ checksum = "b87c9b0fe0180fb8f975afe1a910289250391157e7fd8c47802712d859e6d5f4"
 
 [[package]]
 name = "ref_clone_derive"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
