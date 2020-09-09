@@ -18,16 +18,16 @@
 //!         value: 8
 //!     };
 //!     {
-//!         let ex_ref = Immutable::new(&ex);
+//!         let ex_ref = Shared::new(&ex);
 //!         println!("{}", get_example_value(ex_ref)); // = 8
 //!     }
 //!     {
-//!         let ex_mut = Mutable::new(&mut ex);
+//!         let ex_mut = Unique::new(&mut ex);
 //!         *get_example_value(ex_mut).as_mut() = 1;
 //!     }
 //!     println!("{}", ex.value); // = 1
 //!     {
-//!         let ex_ref = Immutable::new(&ex);
+//!         let ex_ref = Shared::new(&ex);
 //!         println!("{}", get_example_value(ex_ref)); // = 1
 //!     }
 //! }
@@ -37,7 +37,7 @@ use std::marker::PhantomData;
 
 /// The type of the borrow.
 ///
-/// This may either be Immutable or Mutable.
+/// This may either be Shared or Unique.
 pub trait RefType: private::Sealed + Copy {}
 
 /// The Ref type. Third type parameter is the type of the Borrow.
@@ -49,18 +49,18 @@ pub struct Ref<'a, T, S: RefType> {
 }
 
 impl<'a, T, S: RefType> Ref<'a, T, S> {
-    /// Converts the Ref into a borrow. This works for both mutable and immutable references.
+    /// Converts the Ref into a borrow. This works for both shared and unique references.
     #[inline(always)]
     pub fn as_ref(self) -> &'a T {
         self.value
     }
 
     /// UNSAFE. Do not use unless you know exactly what you are doing.
-    /// Use of this to create a Mutable reference (`Ref<'a, T, Mutable>`) is undefined behaviour.
+    /// Use of this to create a Unique reference (`Ref<'a, T, Unique>`) is undefined behaviour.
     ///
     /// This is only public so that ref_clone_derive can call it.
     #[inline(always)]
-    pub unsafe fn new(value: &'a T) -> Ref<'a, T, S> {
+    pub unsafe fn __new_unsafe(value: &'a T) -> Ref<'a, T, S> {
         Ref {
             value,
             ty: PhantomData,
@@ -68,29 +68,29 @@ impl<'a, T, S: RefType> Ref<'a, T, S> {
     }
 }
 
-impl<'a, T> Ref<'a, T, Mutable> {
-    /// Converts the Ref into a mutable borrow. This only works for mutable references.
+impl<'a, T> Ref<'a, T, Unique> {
+    /// Converts the Ref into a mutable borrow. This only works for shared references.
     #[inline(always)]
     pub fn as_mut(self) -> &'a mut T {
         unsafe { (self.value as *const T as *mut T).as_mut().unwrap() }
     }
 }
 
-/// Immutable Reference type.
+/// Shared Reference type.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Immutable;
-// Mutable Reference type.
+pub struct Shared;
+// Unique Reference type.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Mutable;
+pub struct Unique;
 
-impl RefType for Immutable {}
+impl RefType for Shared {}
 
-impl RefType for Mutable {}
+impl RefType for Unique {}
 
-impl Immutable {
-    /// Creates a new immutable Ref from a borrow.
+impl Shared {
+    /// Creates a new shared Ref from a shared borrow.
     #[inline(always)]
-    pub fn new<'a, T>(t: &'a T) -> Ref<'a, T, Immutable> {
+    pub fn new<'a, T>(t: &'a T) -> Ref<'a, T, Shared> {
         Ref {
             value: t,
             ty: PhantomData,
@@ -98,10 +98,10 @@ impl Immutable {
     }
 }
 
-impl Mutable {
-    /// Creates a new mutable Ref from a mutable borrow.
+impl Unique {
+    /// Creates a new unique Ref from a unique borrow.
     #[inline(always)]
-    pub fn new<'a, T>(t: &'a mut T) -> Ref<'a, T, Mutable> {
+    pub fn new<'a, T>(t: &'a mut T) -> Ref<'a, T, Unique> {
         Ref {
             value: t,
             ty: PhantomData,
@@ -136,7 +136,7 @@ mod private {
 
     pub trait Sealed {}
 
-    impl Sealed for Immutable {}
-    impl Sealed for Mutable {}
+    impl Sealed for Shared {}
+    impl Sealed for Unique {}
     impl<T, S: RefType> Sealed for Ref<'_, T, S> {}
 }

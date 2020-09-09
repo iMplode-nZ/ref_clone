@@ -56,7 +56,7 @@ fn gen_named(
 
         quote! {
             #ident : {
-                unsafe { ::ref_clone::Ref::new(#ident) }
+                unsafe { ::ref_clone::Ref::__new_unsafe(#ident) }
             },
         }
     });
@@ -94,7 +94,7 @@ fn gen_unnamed(
     let interior_gen = ast.unnamed.iter().enumerate().map(|(i, _)| {
         let ident = format_ident!("_{}", i);
         quote! {
-            unsafe { ::ref_clone::Ref::new(#ident) }
+            unsafe { ::ref_clone::Ref::__new_unsafe(#ident) }
         }
     });
     let match_gen = ast.unnamed.iter().enumerate().map(|(i, _)| {

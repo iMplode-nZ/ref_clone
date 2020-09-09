@@ -20,23 +20,23 @@ mod tests {
     #[test]
     fn test() {
         let foo = Foo { x: 10, y: vec![3] };
-        let r = Immutable::new(&foo);
+        let r = Shared::new(&foo);
         assert_eq!(*get_foo_child(r).as_ref(), 10);
     }
 
     #[test]
     fn test_mut() {
         let mut foo = Foo { x: 13, y: vec![3] };
-        let r = Mutable::new(&mut foo);
+        let r = Unique::new(&mut foo);
         assert_eq!(*get_foo_child(r).as_ref(), 13);
     }
 
     #[test]
     fn test_two() {
         let foo = Foo { x: 13, y: vec![3] };
-        let r = Immutable::new(&foo);
-        let r2 = Immutable::new(&foo);
-        let r3 = Immutable::new(&foo);
+        let r = Shared::new(&foo);
+        let r2 = Shared::new(&foo);
+        let r3 = Shared::new(&foo);
         assert_eq!(*get_foo_child(r).as_ref(), 13);
         assert_eq!(*get_foo_child(r2).as_ref(), 13);
         assert_eq!(*get_foo_child(r3).as_ref(), 13);
@@ -46,7 +46,7 @@ mod tests {
     fn test_vec() {
         let mut foo = Foo { x: 13, y: vec![3] };
         assert_eq!(
-            get_foo_vec_child(Mutable::new(&mut foo)).as_mut()[0],
+            get_foo_vec_child(Unique::new(&mut foo)).as_mut()[0],
             3
         );
     }
@@ -78,16 +78,16 @@ mod tests {
             value: 8
         };
         {
-            let ex_ref = Immutable::new(&ex);
+            let ex_ref = Shared::new(&ex);
             println!("{}", get_example_value(ex_ref)); // = 8
         }
         {
-            let ex_mut = Mutable::new(&mut ex);
+            let ex_mut = Unique::new(&mut ex);
             *get_example_value(ex_mut).as_mut() = 1;
         }
         println!("{}", ex.value); // = 1
         {
-            let ex_ref = Immutable::new(&ex);
+            let ex_ref = Shared::new(&ex);
             println!("{}", get_example_value(ex_ref)); // = 1
         }
     }
