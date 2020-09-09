@@ -3,7 +3,7 @@ name = "ref_clone_derive"
 version = "0.1.0"
 authors = ["iMplode nZ <rg@youxplode.com>"]
 edition = "2018"
-licence = "MIT"
+license = "MIT"
 description = "Macros to help with the use of ref_clone."
 repository = "https://github.com/iMplode-nZ/ref_clone/"
 

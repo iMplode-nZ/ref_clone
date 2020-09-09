@@ -1,6 +1,37 @@
 //! This crate provides an implementation of a borrow as a higher kinded type.
 //!
 //! This can be used to abstract over the type of borrow by passing the type of the borrow as a type argument.
+//!
+//! Example:
+//!
+//! ```
+//! #[RefAccessors]
+//! struct Example {
+//!     pub value: u8,
+//! }
+//! fn get_example_value<'a, T: RefType>(x: Ref<'a, Example, T>) -> Ref<'a, u8, T> {
+//!     let x = x.to_wrapped();
+//!     x.value
+//! }
+//! fn main() {
+//!     let mut ex = Example {
+//!         value: 8
+//!     };
+//!     {
+//!         let ex_ref = Immutable::new(&ex);
+//!         println!("{}", get_example_value(ex_ref)); // = 8
+//!     }
+//!     {
+//!         let ex_mut = Mutable::new(&mut ex);
+//!         *get_example_value(ex_mut).as_mut() = 1;
+//!     }
+//!     println!("{}", ex.value); // = 1
+//!     {
+//!         let ex_ref = Immutable::new(&ex);
+//!         println!("{}", get_example_value(ex_ref)); // = 1
+//!     }
+//! }
+//! ```
 
 use std::marker::PhantomData;
 
@@ -20,7 +51,7 @@ pub struct Ref<'a, T, S: RefType> {
 impl<'a, T, S: RefType> Ref<'a, T, S> {
     /// Converts the Ref into a borrow. This works for both mutable and immutable references.
     #[inline(always)]
-    pub fn to_borrow(self) -> &'a T {
+    pub fn as_ref(self) -> &'a T {
         self.value
     }
 
@@ -40,7 +71,7 @@ impl<'a, T, S: RefType> Ref<'a, T, S> {
 impl<'a, T> Ref<'a, T, Mutable> {
     /// Converts the Ref into a mutable borrow. This only works for mutable references.
     #[inline(always)]
-    pub fn to_mut_borrow(self) -> &'a mut T {
+    pub fn as_mut(self) -> &'a mut T {
         unsafe { (self.value as *const T as *mut T).as_mut().unwrap() }
     }
 }
@@ -97,7 +128,7 @@ impl<'a, T: std::fmt::Display, S: RefType> std::fmt::Display for Ref<'a, T, S> {
 }
 
 pub trait RefAccessors<Wrapped> {
-    fn to_ref(self) -> Wrapped;
+    fn to_wrapped(self) -> Wrapped;
 }
 
 mod private {

@@ -180,7 +180,7 @@ fn impl_ref_accessors(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 #[allow(non_camel_case_types, non_snake_case)]
                 impl #implgen ::ref_clone::RefAccessors<#ref_path #typegen> for Ref<#lt, #name #ref_types, #ref_type> #where_clause {
                     #[inline(always)]
-                    fn to_ref(self) -> #ref_path #typegen {
+                    fn to_wrapped(self) -> #ref_path #typegen {
                         match self.value {
                             #name #gen
                         }
@@ -221,7 +221,7 @@ fn impl_ref_accessors(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 #[allow(non_camel_case_types, non_snake_case)]
                 impl #implgen ::ref_clone::RefAccessors<#ref_path #typegen> for Ref<#lt, #name #ref_types, #ref_type> #where_clause {
                     #[inline(always)]
-                    fn to_ref(self) -> #ref_path #typegen {
+                    fn to_wrapped(self) -> #ref_path #typegen {
                         match self.value {
                             #(#gen)*
                         }
