@@ -1,3 +1,9 @@
+//! This crate uses a macro to generate necessary impls for easy use of the `Ref` type within the `ref_clone` package.
+//!
+//! To use this, prepend a `#[RefAccessors]` to a struct or enum definition.
+//! The macro automatically generates a wrapper type for the struct or enum which wraps all values in a `Ref`.
+//! This wrapper type may be accessed using the `to_wrapped` method on the trait `RefAccessors`.
+
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::ToTokens;

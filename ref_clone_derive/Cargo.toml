@@ -1,6 +1,6 @@
 [package]
 name = "ref_clone_derive"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["iMplode nZ <rg@youxplode.com>"]
 edition = "2018"
 license = "MIT"
