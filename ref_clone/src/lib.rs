@@ -127,6 +127,31 @@ impl<'a, T: std::fmt::Display, S: RefType> std::fmt::Display for Ref<'a, T, S> {
     }
 }
 
+pub trait IntoRef {
+    type Output;
+    fn into_ref(self) -> Self::Output;
+}
+
+impl<'a, T> IntoRef for &'a T {
+    type Output = Ref<'a, T, Shared>;
+    fn into_ref(self) -> Self::Output {
+        Shared::new(self)
+    }
+}
+
+impl<'a, T> IntoRef for &'a mut T {
+    type Output = Ref<'a, T, Unique>;
+    fn into_ref(self) -> Self::Output {
+        Unique::new(self)
+    }
+}
+
+impl<'a, T, S: RefType> Ref<'a, T, S> {
+    pub fn new(this: impl IntoRef<Output = Self>) -> Self {
+        this.into_ref()
+    }
+}
+
 pub trait RefAccessors<Wrapped> {
     fn to_wrapped(self) -> Wrapped;
 }
