@@ -187,7 +187,7 @@ fn impl_ref_accessors(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 impl #implgen ::ref_clone::RefAccessors<#ref_path #typegen> for Ref<#lt, #name #ref_types, #ref_type> #where_clause {
                     #[inline(always)]
                     fn to_wrapped(self) -> #ref_path #typegen {
-                        match self.value {
+                        match unsafe { self.__value() } {
                             #name #gen
                         }
                     }
@@ -228,7 +228,7 @@ fn impl_ref_accessors(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 impl #implgen ::ref_clone::RefAccessors<#ref_path #typegen> for Ref<#lt, #name #ref_types, #ref_type> #where_clause {
                     #[inline(always)]
                     fn to_wrapped(self) -> #ref_path #typegen {
-                        match self.value {
+                        match unsafe { self.__value() } {
                             #(#gen)*
                         }
                     }

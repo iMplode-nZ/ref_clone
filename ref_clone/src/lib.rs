@@ -33,6 +33,7 @@
 //! }
 //! ```
 
+use std::ops::Deref;
 use std::marker::PhantomData;
 
 /// The type of the borrow.
@@ -44,8 +45,13 @@ pub trait RefType: private::Sealed + Copy {}
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Ref<'a, T, S: RefType> {
-    pub value: &'a T,
+    value: &'a T,
     ty: PhantomData<S>,
+}
+
+impl<'a, T, S: RefType> Deref for Ref<'a, T, S> {
+    type Target = T;
+    fn deref(&self) -> &T { self.value }
 }
 
 impl<'a, T, S: RefType> Ref<'a, T, S> {
@@ -65,6 +71,12 @@ impl<'a, T, S: RefType> Ref<'a, T, S> {
             value,
             ty: PhantomData,
         }
+    }
+
+    /// UNSAFE. Do not use unless you know exactly what you are doing.
+    #[inline(always)]
+    pub unsafe fn __value(self) -> &'a T {
+        self.value
     }
 }
 
