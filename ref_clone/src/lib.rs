@@ -33,6 +33,10 @@
 //! }
 //! ```
 
+#![allow(incomplete_features)]
+#![feature(const_generics)]
+
+use std::ops::DerefMut;
 use std::ops::Deref;
 use std::marker::PhantomData;
 
@@ -49,15 +53,25 @@ pub struct Ref<'a, T, S: RefType> {
     ty: PhantomData<S>,
 }
 
-impl<'a, T, S: RefType> Deref for Ref<'a, T, S> {
+impl<'a, T> Deref for Ref<'a, T, Shared> {
     type Target = T;
-    fn deref(&self) -> &T { self.value }
+    fn deref(&self) -> &T { self.as_ref() }
+}
+
+
+impl<'a, T> Deref for Ref<'a, T, Unique> {
+    type Target = T;
+    fn deref(&self) -> &T { self.as_ref() }
+}
+
+impl<'a, T> DerefMut for Ref<'a, T, Unique> {
+    fn deref_mut(&mut self) -> &mut T { self.as_mut() }
 }
 
 impl<'a, T, S: RefType> Ref<'a, T, S> {
     /// Converts the Ref into a borrow. This works for both shared and unique references.
     #[inline(always)]
-    pub fn as_ref(self) -> &'a T {
+    pub fn as_ref(&self) -> &'a T {
         self.value
     }
 
@@ -83,7 +97,7 @@ impl<'a, T, S: RefType> Ref<'a, T, S> {
 impl<'a, T> Ref<'a, T, Unique> {
     /// Converts the Ref into a mutable borrow. This only works for shared references.
     #[inline(always)]
-    pub fn as_mut(self) -> &'a mut T {
+    pub fn as_mut(&mut self) -> &'a mut T {
         unsafe { (self.value as *const T as *mut T).as_mut().unwrap() }
     }
 }
@@ -121,24 +135,6 @@ impl Unique {
     }
 }
 
-impl<'a, T: std::fmt::Debug, S: RefType> std::fmt::Debug for Ref<'a, T, S> {
-    fn fmt(
-        &self,
-        formatter: &mut std::fmt::Formatter<'_>,
-    ) -> std::result::Result<(), std::fmt::Error> {
-        self.value.fmt(formatter)
-    }
-}
-
-impl<'a, T: std::fmt::Display, S: RefType> std::fmt::Display for Ref<'a, T, S> {
-    fn fmt(
-        &self,
-        formatter: &mut std::fmt::Formatter<'_>,
-    ) -> std::result::Result<(), std::fmt::Error> {
-        self.value.fmt(formatter)
-    }
-}
-
 pub trait IntoRef {
     type Output;
     fn into_ref(self) -> Self::Output;
@@ -166,6 +162,32 @@ impl<'a, T, S: RefType> Ref<'a, T, S> {
 
 pub trait RefAccessors<Wrapped> {
     fn to_wrapped(self) -> Wrapped;
+}
+
+impl<'a, T: std::fmt::Debug, S: RefType> std::fmt::Debug for Ref<'a, T, S> {
+    fn fmt(
+        &self,
+        formatter: &mut std::fmt::Formatter<'_>,
+    ) -> std::result::Result<(), std::fmt::Error> {
+        self.value.fmt(formatter)
+    }
+}
+
+impl<'a, T: std::fmt::Display, S: RefType> std::fmt::Display for Ref<'a, T, S> {
+    fn fmt(
+        &self,
+        formatter: &mut std::fmt::Formatter<'_>,
+    ) -> std::result::Result<(), std::fmt::Error> {
+        self.value.fmt(formatter)
+    }
+}
+
+impl<'a, T, S: RefType, const N: usize> Ref<'a, [T; N], S> { // Array ref
+    pub fn index(self, i: usize) -> Ref<'a, T, S> {
+        unsafe {
+            Ref::__new_unsafe(&self.value[i])
+        }
+    }
 }
 
 mod private {
