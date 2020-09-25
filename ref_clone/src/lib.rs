@@ -247,3 +247,14 @@ impl<'a, T, S: RefType> IntoIterator for Ref<'a, [T], S> {
         }
     }
 }
+
+impl<'a, T: 'a, S: RefType, const N: usize> IntoIteratorRef<'a, S> for [T; N] {
+    type Item = T;
+    type IntoIter = RefIter<'a, T, S>;
+    fn into_iter(self: Ref<'a, Self, S>) -> Self::IntoIter {
+        RefIter {
+            iter: unsafe { self.__value().into_iter() },
+            _marker: PhantomData,
+        }
+    }
+}

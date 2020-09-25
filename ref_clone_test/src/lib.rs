@@ -91,4 +91,14 @@ mod tests {
             println!("{}", get_example_value(ex_ref)); // = 1
         }
     }
+
+    #[test]
+    fn test_array() {
+        let foo = Ref::new(&[1, 2, 3]);
+        let mut iter = foo.into_iter();
+        assert_eq!(iter.next(), Some(Ref::new(&1)));
+        assert_eq!(iter.next(), Some(Ref::new(&2)));
+        assert_eq!(iter.next(), Some(Ref::new(&3)));
+        assert_eq!(iter.next(), None);
+    }
 }

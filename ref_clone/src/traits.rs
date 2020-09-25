@@ -11,3 +11,13 @@ pub trait IndexRef<Idx> {
 
     fn index_ref<'a, S: RefType>(self: Ref<'a, Self, S>, index: Idx) -> Ref<'a, Self::Output, S>;
 }
+
+pub trait IntoIteratorRef<'a, T: RefType> {
+    type Item: 'a;
+    type IntoIter: Iterator<Item = Ref<'a, Self::Item, T>>;
+    fn into_iter(self: Ref<'a, Self, T>) -> Self::IntoIter;
+}
+
+impl<'a, S, T: RefType> IntoIterator for S where S: IntoIteratorRef<'a, T> {
+    type Item = Ref<'a, Self::Item, T>;
+}
