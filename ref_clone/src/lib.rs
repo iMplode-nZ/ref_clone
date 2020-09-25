@@ -37,9 +37,10 @@
 #![feature(const_generics)]
 #![feature(arbitrary_self_types)]
 
-use std::ops::DerefMut;
-use std::ops::Deref;
 use std::marker::PhantomData;
+use std::ops::Deref;
+use std::ops::DerefMut;
+use std::slice::Iter;
 
 /// The type of the borrow.
 ///
@@ -49,21 +50,25 @@ pub trait RefType: private::Sealed + Copy {}
 /// The Ref type. Third type parameter is the type of the Borrow.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct Ref<'a, T, S: RefType> {
+pub struct Ref<'a, T: ?Sized, S: RefType> {
     value: &'a T,
     ty: PhantomData<S>,
 }
 
-impl<'a, T, S: RefType> Deref for Ref<'a, T, S> {
+impl<'a, T: ?Sized, S: RefType> Deref for Ref<'a, T, S> {
     type Target = T;
-    fn deref(&self) -> &T { self.as_ref() }
+    fn deref(&self) -> &T {
+        self.as_ref()
+    }
 }
 
-impl<'a, T> DerefMut for Ref<'a, T, Unique> {
-    fn deref_mut(&mut self) -> &mut T { self.as_mut() }
+impl<'a, T: ?Sized> DerefMut for Ref<'a, T, Unique> {
+    fn deref_mut(&mut self) -> &mut T {
+        self.as_mut()
+    }
 }
 
-impl<'a, T, S: RefType> Ref<'a, T, S> {
+impl<'a, T: ?Sized, S: RefType> Ref<'a, T, S> {
     /// Converts the Ref into a borrow. This works for both shared and unique references.
     #[inline(always)]
     pub fn as_ref(&self) -> &'a T {
@@ -89,7 +94,7 @@ impl<'a, T, S: RefType> Ref<'a, T, S> {
     }
 }
 
-impl<'a, T> Ref<'a, T, Unique> {
+impl<'a, T: ?Sized> Ref<'a, T, Unique> {
     /// Converts the Ref into a mutable borrow. This only works for shared references.
     #[inline(always)]
     pub fn as_mut(&mut self) -> &'a mut T {
@@ -111,7 +116,7 @@ impl RefType for Unique {}
 impl Shared {
     /// Creates a new shared Ref from a shared borrow.
     #[inline(always)]
-    pub fn new<'a, T>(t: &'a T) -> Ref<'a, T, Shared> {
+    pub fn new<'a, T: ?Sized>(t: &'a T) -> Ref<'a, T, Shared> {
         Ref {
             value: t,
             ty: PhantomData,
@@ -122,7 +127,7 @@ impl Shared {
 impl Unique {
     /// Creates a new unique Ref from a unique borrow.
     #[inline(always)]
-    pub fn new<'a, T>(t: &'a mut T) -> Ref<'a, T, Unique> {
+    pub fn new<'a, T: ?Sized>(t: &'a mut T) -> Ref<'a, T, Unique> {
         Ref {
             value: t,
             ty: PhantomData,
@@ -135,21 +140,21 @@ pub trait IntoRef {
     fn into_ref(self) -> Self::Output;
 }
 
-impl<'a, T> IntoRef for &'a T {
+impl<'a, T: ?Sized> IntoRef for &'a T {
     type Output = Ref<'a, T, Shared>;
     fn into_ref(self) -> Self::Output {
         Shared::new(self)
     }
 }
 
-impl<'a, T> IntoRef for &'a mut T {
+impl<'a, T: ?Sized> IntoRef for &'a mut T {
     type Output = Ref<'a, T, Unique>;
     fn into_ref(self) -> Self::Output {
         Unique::new(self)
     }
 }
 
-impl<'a, T, S: RefType> Ref<'a, T, S> {
+impl<'a, T: ?Sized, S: RefType> Ref<'a, T, S> {
     pub fn new(this: impl IntoRef<Output = Self>) -> Self {
         this.into_ref()
     }
@@ -159,7 +164,7 @@ pub trait RefAccessors<Wrapped> {
     fn to_wrapped(self) -> Wrapped;
 }
 
-impl<'a, T: std::fmt::Debug, S: RefType> std::fmt::Debug for Ref<'a, T, S> {
+impl<'a, T: std::fmt::Debug + ?Sized, S: RefType> std::fmt::Debug for Ref<'a, T, S> {
     fn fmt(
         &self,
         formatter: &mut std::fmt::Formatter<'_>,
@@ -168,7 +173,7 @@ impl<'a, T: std::fmt::Debug, S: RefType> std::fmt::Debug for Ref<'a, T, S> {
     }
 }
 
-impl<'a, T: std::fmt::Display, S: RefType> std::fmt::Display for Ref<'a, T, S> {
+impl<'a, T: std::fmt::Display + ?Sized, S: RefType> std::fmt::Display for Ref<'a, T, S> {
     fn fmt(
         &self,
         formatter: &mut std::fmt::Formatter<'_>,
@@ -187,26 +192,58 @@ mod private {
     impl<T, S: RefType> Sealed for Ref<'_, T, S> {}
 }
 
-
 mod traits;
 pub use traits::*;
 
 /* =============== Specific implementation of traits =============== */
 
-impl<T, const N: usize> IndexRef<usize> for [T; N] { // Array ref
+impl<T> IndexRef<usize> for [T] {
+    // Array ref
     type Output = T;
     fn index_ref<'a, S: RefType>(self: Ref<'a, Self, S>, i: usize) -> Ref<'a, T, S> {
-        unsafe {
-            Ref::__new_unsafe(&self.value[i])
-        }
+        unsafe { Ref::__new_unsafe(&self.value[i]) }
+    }
+}
+
+impl<T, const N: usize> IndexRef<usize> for [T; N] {
+    // Array ref
+    type Output = T;
+    fn index_ref<'a, S: RefType>(self: Ref<'a, Self, S>, i: usize) -> Ref<'a, T, S> {
+        unsafe { Ref::__new_unsafe(&self.value[i]) }
     }
 }
 
 impl<T> DerefRef for Box<T> {
     type Target = T;
     fn deref_ref<'a, S: RefType>(self: Ref<'a, Self, S>) -> Ref<'a, T, S> {
+        unsafe { Ref::__new_unsafe(self.__value().deref()) }
+    }
+}
+
+pub struct RefIter<'a, T, S: RefType> {
+    iter: Iter<'a, T>,
+    _marker: PhantomData<S>,
+}
+
+impl<'a, T, S: RefType> Iterator for RefIter<'a, T, S> {
+    type Item = Ref<'a, T, S>;
+    fn next(&mut self) -> Option<Self::Item> {
         unsafe {
-            Ref::__new_unsafe(self.__value().deref())
+            match self.iter.next() {
+                Some(a) => Some(Ref::__new_unsafe(a)),
+                None => None,
+            }
+        }
+    }
+}
+
+impl<'a, T, S: RefType> IntoIterator for Ref<'a, [T], S> {
+    type Item = Ref<'a, T, S>;
+    type IntoIter = RefIter<'a, T, S>;
+    fn into_iter(self) -> Self::IntoIter {
+        RefIter {
+            iter: unsafe { self.__value().into_iter() },
+            _marker: PhantomData,
         }
     }
 }
