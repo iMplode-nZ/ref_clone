@@ -35,6 +35,7 @@
 
 #![allow(incomplete_features)]
 #![feature(const_generics)]
+#![feature(arbitrary_self_types)]
 
 use std::ops::DerefMut;
 use std::ops::Deref;
@@ -53,13 +54,7 @@ pub struct Ref<'a, T, S: RefType> {
     ty: PhantomData<S>,
 }
 
-impl<'a, T> Deref for Ref<'a, T, Shared> {
-    type Target = T;
-    fn deref(&self) -> &T { self.as_ref() }
-}
-
-
-impl<'a, T> Deref for Ref<'a, T, Unique> {
+impl<'a, T, S: RefType> Deref for Ref<'a, T, S> {
     type Target = T;
     fn deref(&self) -> &T { self.as_ref() }
 }
@@ -182,14 +177,6 @@ impl<'a, T: std::fmt::Display, S: RefType> std::fmt::Display for Ref<'a, T, S> {
     }
 }
 
-impl<'a, T, S: RefType, const N: usize> Ref<'a, [T; N], S> { // Array ref
-    pub fn index(self, i: usize) -> Ref<'a, T, S> {
-        unsafe {
-            Ref::__new_unsafe(&self.value[i])
-        }
-    }
-}
-
 mod private {
     use crate::*;
 
@@ -198,4 +185,28 @@ mod private {
     impl Sealed for Shared {}
     impl Sealed for Unique {}
     impl<T, S: RefType> Sealed for Ref<'_, T, S> {}
+}
+
+
+mod traits;
+pub use traits::*;
+
+/* =============== Specific implementation of traits =============== */
+
+impl<T, const N: usize> IndexRef<usize> for [T; N] { // Array ref
+    type Output = T;
+    fn index_ref<'a, S: RefType>(self: Ref<'a, Self, S>, i: usize) -> Ref<'a, T, S> {
+        unsafe {
+            Ref::__new_unsafe(&self.value[i])
+        }
+    }
+}
+
+impl<T> DerefRef for Box<T> {
+    type Target = T;
+    fn deref_ref<'a, S: RefType>(self: Ref<'a, Self, S>) -> Ref<'a, T, S> {
+        unsafe {
+            Ref::__new_unsafe(self.__value().deref())
+        }
+    }
 }
