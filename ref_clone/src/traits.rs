@@ -15,13 +15,13 @@ pub trait IndexRef<Idx> {
 pub trait IntoIteratorRef<'a, T: RefType> {
     type Item: 'a;
     type IntoIter: Iterator<Item = Ref<'a, Self::Item, T>>;
-    fn into_iter(self: Ref<'a, Self, T>) -> Self::IntoIter;
+    fn into_iter_ref(self: Ref<'a, Self, T>) -> Self::IntoIter;
 }
 
 impl<'a, S, T: RefType> IntoIterator for Ref<'a, S, T> where S: IntoIteratorRef<'a, T> {
     type Item = Ref<'a, S::Item, T>;
     type IntoIter = S::IntoIter;
     fn into_iter(self) -> S::IntoIter {
-        self.into_iter()
+        self.into_iter_ref()
     }
 }
