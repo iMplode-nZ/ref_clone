@@ -33,12 +33,12 @@ impl<'a, S: Iterator<Item = Ref<'a, I, Unique>>, I> Iterator for RefIterator<'a,
 
 pub trait IntoIteratorRef<'a> {
     type Item: 'a;
-    type IntoIter<T>: Iterator<Item = Ref<'a, Self::Item, T>>;
-    fn into_iter_ref<T>(self: Ref<'a, Self, T>) -> Self::IntoIter<T>;
-    fn iter(&self) -> RefIterator<'a, Shared, Self::IntoIter<Shared>, Self::Item> {
+    type IntoIter<T: RefType>: Iterator<Item = Ref<'a, Self::Item, T>>;
+    fn into_iter_ref<T: RefType>(self: Ref<'a, Self, T>) -> Self::IntoIter<T>;
+    fn iter(&'a self) -> RefIterator<'a, Shared, Self::IntoIter<Shared>, Self::Item> {
         RefIterator(Ref::new(self).into_iter_ref())
     }
-    fn iter_mut(&mut self) -> RefIterator<'a, Unique, Self::IntoIter<Unique>, Self::Item> {
+    fn iter_mut(&'a mut self) -> RefIterator<'a, Unique, Self::IntoIter<Unique>, Self::Item> {
         RefIterator(Ref::new(self).into_iter_ref())
     }
 }

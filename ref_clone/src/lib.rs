@@ -238,10 +238,10 @@ impl<'a, T, S: RefType> Iterator for RefIter<'a, T, S> {
     }
 }
 
-impl<'a, T: 'a, S: RefType> IntoIteratorRef<'a, S> for [T] {
+impl<'a, T: 'a> IntoIteratorRef<'a> for [T] {
     type Item =  T;
-    type IntoIter = RefIter<'a, T, S>;
-    fn into_iter_ref(self: Ref<'a, Self, S>) -> Self::IntoIter {
+    type IntoIter<S: RefType> = RefIter<'a, T, S>;
+    fn into_iter_ref<S: RefType>(self: Ref<'a, Self, S>) -> Self::IntoIter<S> {
         RefIter {
             iter: unsafe { self.__value().into_iter() },
             _marker: PhantomData,
@@ -249,10 +249,10 @@ impl<'a, T: 'a, S: RefType> IntoIteratorRef<'a, S> for [T] {
     }
 }
 
-impl<'a, T: 'a, S: RefType, const N: usize> IntoIteratorRef<'a, S> for [T; N] {
+impl<'a, T: 'a, const N: usize> IntoIteratorRef<'a> for [T; N] {
     type Item = T;
-    type IntoIter = RefIter<'a, T, S>;
-    fn into_iter_ref(self: Ref<'a, Self, S>) -> Self::IntoIter {
+    type IntoIter<S: RefType> = RefIter<'a, T, S>;
+    fn into_iter_ref<S: RefType>(self: Ref<'a, Self, S>) -> Self::IntoIter<S> {
         RefIter {
             iter: unsafe { self.__value().into_iter() },
             _marker: PhantomData,
