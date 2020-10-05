@@ -36,6 +36,7 @@
 #![allow(incomplete_features)]
 #![feature(const_generics)]
 #![feature(arbitrary_self_types)]
+#![feature(generic_associated_types)]
 
 use std::marker::PhantomData;
 use std::ops::Deref;
