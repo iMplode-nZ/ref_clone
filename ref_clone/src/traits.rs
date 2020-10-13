@@ -13,7 +13,9 @@ pub trait IndexRef<Idx> {
 }
 
 #[repr(transparent)]
-pub struct RefIterator<'a, T: RefType, S, I: 'a>(S) where S: Iterator<Item = Ref<'a, I, T>>;
+pub struct RefIterator<'a, T: RefType, S, I: 'a>(S)
+where
+    S: Iterator<Item = Ref<'a, I, T>>;
 
 impl<'a, S: Iterator<Item = Ref<'a, I, Shared>>, I> Iterator for RefIterator<'a, Shared, S, I> {
     type Item = &'a I;
@@ -43,7 +45,10 @@ pub trait IntoIteratorRef<'a> {
     }
 }
 
-impl<'a, S, T: RefType> IntoIterator for Ref<'a, S, T> where S: IntoIteratorRef<'a> {
+impl<'a, S, T: RefType> IntoIterator for Ref<'a, S, T>
+where
+    S: IntoIteratorRef<'a>,
+{
     type Item = Ref<'a, S::Item, T>;
     type IntoIter = S::IntoIter<T>;
     fn into_iter(self) -> S::IntoIter<T> {

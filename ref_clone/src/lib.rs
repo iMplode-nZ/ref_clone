@@ -37,16 +37,13 @@
 #![feature(const_generics)]
 #![feature(arbitrary_self_types)]
 #![feature(generic_associated_types)]
+#![feature(unboxed_closures)]
+#![feature(fn_traits)]
 
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::ops::DerefMut;
 use std::slice::Iter;
-
-/// The type of the borrow.
-///
-/// This may either be Shared or Unique.
-pub trait RefType: private::Sealed + Copy {}
 
 /// The Ref type. Third type parameter is the type of the Borrow.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -56,53 +53,6 @@ pub struct Ref<'a, T: ?Sized, S: RefType> {
     ty: PhantomData<S>,
 }
 
-impl<'a, T: ?Sized, S: RefType> Deref for Ref<'a, T, S> {
-    type Target = T;
-    fn deref(&self) -> &T {
-        self.as_ref()
-    }
-}
-
-impl<'a, T: ?Sized> DerefMut for Ref<'a, T, Unique> {
-    fn deref_mut(&mut self) -> &mut T {
-        self.as_mut()
-    }
-}
-
-impl<'a, T: ?Sized, S: RefType> Ref<'a, T, S> {
-    /// Converts the Ref into a borrow. This works for both shared and unique references.
-    #[inline(always)]
-    pub fn as_ref(&self) -> &'a T {
-        self.value
-    }
-
-    /// UNSAFE. Do not use unless you know exactly what you are doing.
-    /// Use of this to create a Unique reference (`Ref<'a, T, Unique>`) is undefined behaviour.
-    ///
-    /// This is only public so that ref_clone_derive can call it.
-    #[inline(always)]
-    pub unsafe fn __new_unsafe(value: &'a T) -> Ref<'a, T, S> {
-        Ref {
-            value,
-            ty: PhantomData,
-        }
-    }
-
-    /// UNSAFE. Do not use unless you know exactly what you are doing.
-    #[inline(always)]
-    pub unsafe fn __value(self) -> &'a T {
-        self.value
-    }
-}
-
-impl<'a, T: ?Sized> Ref<'a, T, Unique> {
-    /// Converts the Ref into a mutable borrow. This only works for shared references.
-    #[inline(always)]
-    pub fn as_mut(&mut self) -> &'a mut T {
-        unsafe { (self.value as *const T as *mut T).as_mut().unwrap() }
-    }
-}
-
 /// Shared Reference type.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Shared;
@@ -110,9 +60,168 @@ pub struct Shared;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Unique;
 
-impl RefType for Shared {}
+pub struct RefFn<'a, F1, F2, A: 'a, B: 'a>
+where
+    F1: FnOnce(&'a A) -> &'a B,
+    F2: FnOnce(&'a mut A) -> &'a mut B,
+{
+    pub apply: F1,
+    pub apply_mut: F2,
+    _marker: PhantomData<*const &'a (A, B)>,
+}
 
-impl RefType for Unique {}
+/// The type of the borrow.
+///
+/// This may either be Shared or Unique.
+pub trait RefType: private::Sealed + Copy {
+    fn _apply_once<'a, F1, F2, A, B>(
+        f: RefFn<'a, F1, F2, A, B>,
+        x: Ref<'a, A, Self>,
+    ) -> Ref<'a, B, Self>
+    where
+        F1: FnOnce(&'a A) -> &'a B,
+        F2: FnOnce(&'a mut A) -> &'a mut B;
+
+    fn _apply_mut<'a, F1, F2, A, B>(
+        f: &mut RefFn<'a, F1, F2, A, B>,
+        x: Ref<'a, A, Self>,
+    ) -> Ref<'a, B, Self>
+    where
+        F1: FnMut(&'a A) -> &'a B,
+        F2: FnMut(&'a mut A) -> &'a mut B;
+
+    fn _apply<'a, F1, F2, A, B>(
+        f: &RefFn<'a, F1, F2, A, B>,
+        x: Ref<'a, A, Self>,
+    ) -> Ref<'a, B, Self>
+    where
+        F1: Fn(&'a A) -> &'a B,
+        F2: Fn(&'a mut A) -> &'a mut B;
+}
+
+pub trait IntoRef {
+    type Output;
+    fn into_ref(self) -> Self::Output;
+}
+
+pub trait RefAccessors<Wrapped> {
+    fn to_wrapped(self) -> Wrapped;
+}
+
+impl<'a, F1, F2, A: 'a, B: 'a> RefFn<'a, F1, F2, A, B>
+where
+    F1: FnOnce(&'a A) -> &'a B,
+    F2: FnOnce(&'a mut A) -> &'a mut B,
+{
+    pub fn new(apply: F1, apply_mut: F2) -> Self {
+        RefFn {
+            apply,
+            apply_mut,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<'a, F1, F2, A: 'a, B: 'a, T: RefType> FnOnce<(Ref<'a, A, T>,)> for RefFn<'a, F1, F2, A, B>
+where
+    F1: FnOnce(&'a A) -> &'a B,
+    F2: FnOnce(&'a mut A) -> &'a mut B,
+{
+    type Output = Ref<'a, B, T>;
+    #[inline(always)]
+    extern "rust-call" fn call_once(self, args: (Ref<'a, A, T>,)) -> Self::Output {
+        T::_apply_once(self, args.0)
+    }
+}
+impl<'a, F1, F2, A: 'a, B: 'a, T: RefType> FnMut<(Ref<'a, A, T>,)> for RefFn<'a, F1, F2, A, B>
+where
+    F1: FnMut(&'a A) -> &'a B,
+    F2: FnMut(&'a mut A) -> &'a mut B,
+{
+    #[inline(always)]
+    extern "rust-call" fn call_mut(&mut self, args: (Ref<'a, A, T>,)) -> Self::Output {
+        T::_apply_mut(self, args.0)
+    }
+}
+impl<'a, F1, F2, A: 'a, B: 'a, T: RefType> Fn<(Ref<'a, A, T>,)> for RefFn<'a, F1, F2, A, B>
+where
+    F1: Fn(&'a A) -> &'a B,
+    F2: Fn(&'a mut A) -> &'a mut B,
+{
+    #[inline(always)]
+    extern "rust-call" fn call(&self, args: (Ref<'a, A, T>,)) -> Self::Output {
+        T::_apply(self, args.0)
+    }
+}
+
+impl RefType for Shared {
+    #[inline(always)]
+    fn _apply_once<'a, F1, F2, A, B>(f: RefFn<'a, F1, F2, A, B>, x: Ref<'a, A, Self>) -> Ref<'a, B, Self>
+    where
+        F1: FnOnce(&'a A) -> &'a B,
+        F2: FnOnce(&'a mut A) -> &'a mut B,
+    {
+        Ref::new((f.apply)(x.as_ref()))
+    }
+    #[inline(always)]
+    fn _apply_mut<'a, F1, F2, A, B>(
+        f: &mut RefFn<'a, F1, F2, A, B>,
+        x: Ref<'a, A, Self>,
+    ) -> Ref<'a, B, Self>
+    where
+        F1: FnMut(&'a A) -> &'a B,
+        F2: FnMut(&'a mut A) -> &'a mut B,
+    {
+        Ref::new((f.apply)(x.as_ref()))
+    }
+    #[inline(always)]
+    fn _apply<'a, F1, F2, A, B>(
+        f: &RefFn<'a, F1, F2, A, B>,
+        x: Ref<'a, A, Self>,
+    ) -> Ref<'a, B, Self>
+    where
+        F1: Fn(&'a A) -> &'a B,
+        F2: Fn(&'a mut A) -> &'a mut B,
+    {
+        Ref::new((f.apply)(x.as_ref()))
+    }
+}
+
+impl RefType for Unique {
+    #[inline(always)]
+    fn _apply_once<'a, F1, F2, A, B>(
+        f: RefFn<'a, F1, F2, A, B>,
+        mut x: Ref<'a, A, Self>,
+    ) -> Ref<'a, B, Self>
+    where
+        F1: FnOnce(&'a A) -> &'a B,
+        F2: FnOnce(&'a mut A) -> &'a mut B,
+    {
+        Ref::new((f.apply_mut)(x.as_mut()))
+    }
+    #[inline(always)]
+    fn _apply_mut<'a, F1, F2, A, B>(
+        f: &mut RefFn<'a, F1, F2, A, B>,
+        mut x: Ref<'a, A, Self>,
+    ) -> Ref<'a, B, Self>
+    where
+        F1: FnMut(&'a A) -> &'a B,
+        F2: FnMut(&'a mut A) -> &'a mut B,
+    {
+        Ref::new((f.apply_mut)(x.as_mut()))
+    }
+    #[inline(always)]
+    fn _apply<'a, F1, F2, A, B>(
+        f: &RefFn<'a, F1, F2, A, B>,
+        mut x: Ref<'a, A, Self>,
+    ) -> Ref<'a, B, Self>
+    where
+        F1: Fn(&'a A) -> &'a B,
+        F2: Fn(&'a mut A) -> &'a mut B,
+    {
+        Ref::new((f.apply_mut)(x.as_mut()))
+    }
+}
 
 impl Shared {
     /// Creates a new shared Ref from a shared borrow.
@@ -136,13 +245,52 @@ impl Unique {
     }
 }
 
-pub trait IntoRef {
-    type Output;
-    fn into_ref(self) -> Self::Output;
+impl<'a, T: ?Sized, S: RefType> Deref for Ref<'a, T, S> {
+    type Target = T;
+    #[inline(always)]
+    fn deref(&self) -> &T {
+        self.as_ref()
+    }
+}
+
+impl<'a, T: ?Sized> DerefMut for Ref<'a, T, Unique> {
+    #[inline(always)]
+    fn deref_mut(&mut self) -> &mut T {
+        self.as_mut()
+    }
+}
+
+impl<'a, T: ?Sized, S: RefType> Ref<'a, T, S> {
+    /// Converts the Ref into a borrow. This works for both shared and unique references.
+    #[inline(always)]
+    pub fn as_ref(&self) -> &'a T {
+        self.value
+    }
+
+    /// UNSAFE. Do not use unless you know exactly what you are doing.
+    /// Use of this to create a Unique reference (`Ref<'a, T, Unique>`) is undefined behaviour.
+    ///
+    /// This is only public so that ref_clone_derive can call it.
+    #[inline(always)]
+    pub unsafe fn __new_unsafe(value: &'a T) -> Ref<'a, T, S> {
+        Ref {
+            value,
+            ty: PhantomData,
+        }
+    }
+}
+
+impl<'a, T: ?Sized> Ref<'a, T, Unique> {
+    /// Converts the Ref into a mutable borrow. This only works for shared references.
+    #[inline(always)]
+    pub fn as_mut(&mut self) -> &'a mut T {
+        unsafe { (self.value as *const T as *mut T).as_mut().unwrap() }
+    }
 }
 
 impl<'a, T: ?Sized> IntoRef for &'a T {
     type Output = Ref<'a, T, Shared>;
+    #[inline(always)]
     fn into_ref(self) -> Self::Output {
         Shared::new(self)
     }
@@ -150,19 +298,17 @@ impl<'a, T: ?Sized> IntoRef for &'a T {
 
 impl<'a, T: ?Sized> IntoRef for &'a mut T {
     type Output = Ref<'a, T, Unique>;
+    #[inline(always)]
     fn into_ref(self) -> Self::Output {
         Unique::new(self)
     }
 }
 
 impl<'a, T: ?Sized, S: RefType> Ref<'a, T, S> {
+    #[inline(always)]
     pub fn new(this: impl IntoRef<Output = Self>) -> Self {
         this.into_ref()
     }
-}
-
-pub trait RefAccessors<Wrapped> {
-    fn to_wrapped(self) -> Wrapped;
 }
 
 impl<'a, T: std::fmt::Debug + ?Sized, S: RefType> std::fmt::Debug for Ref<'a, T, S> {
@@ -217,7 +363,7 @@ impl<T, const N: usize> IndexRef<usize> for [T; N] {
 impl<T> DerefRef for Box<T> {
     type Target = T;
     fn deref_ref<'a, S: RefType>(self: Ref<'a, Self, S>) -> Ref<'a, T, S> {
-        unsafe { Ref::__new_unsafe(self.__value().deref()) }
+        unsafe { Ref::__new_unsafe(self.as_ref().deref()) }
     }
 }
 
@@ -239,11 +385,11 @@ impl<'a, T, S: RefType> Iterator for RefIter<'a, T, S> {
 }
 
 impl<'a, T: 'a> IntoIteratorRef<'a> for [T] {
-    type Item =  T;
+    type Item = T;
     type IntoIter<S: RefType> = RefIter<'a, T, S>;
     fn into_iter_ref<S: RefType>(self: Ref<'a, Self, S>) -> Self::IntoIter<S> {
         RefIter {
-            iter: unsafe { self.__value().into_iter() },
+            iter: self.as_ref().into_iter(),
             _marker: PhantomData,
         }
     }
@@ -254,7 +400,7 @@ impl<'a, T: 'a, const N: usize> IntoIteratorRef<'a> for [T; N] {
     type IntoIter<S: RefType> = RefIter<'a, T, S>;
     fn into_iter_ref<S: RefType>(self: Ref<'a, Self, S>) -> Self::IntoIter<S> {
         RefIter {
-            iter: unsafe { self.__value().into_iter() },
+            iter: self.as_ref().into_iter(),
             _marker: PhantomData,
         }
     }
