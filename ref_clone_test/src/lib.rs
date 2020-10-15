@@ -51,9 +51,8 @@ mod tests {
         );
     }
 
-    #[test]
     fn branch() {
-        let f1 = |a: &u8| a;
+        let f1 = |a| a;
         let f2 = |a: &mut u8| {*a += 1; a };
         let f = &RefFn::<_, _, u8, _>::new(f1, f2);
         assert_eq!(f(Ref::new(&10)), Ref::new(&10));

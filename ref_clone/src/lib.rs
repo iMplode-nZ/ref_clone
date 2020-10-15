@@ -60,43 +60,43 @@ pub struct Shared;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Unique;
 
-pub struct RefFn<'a, F1, F2, A: 'a, B: 'a>
+pub struct RefFn<'a, 'b, F1, F2, A, B>
 where
-    F1: FnOnce(&'a A) -> &'a B,
-    F2: FnOnce(&'a mut A) -> &'a mut B,
+    F1: FnOnce(&'a A) -> &'b B,
+    F2: FnOnce(&'a mut A) -> &'b mut B,
 {
     pub apply: F1,
     pub apply_mut: F2,
-    _marker: PhantomData<*const &'a (A, B)>,
+    _marker: PhantomData<*const &'a &'b (A, B)>,
 }
 
 /// The type of the borrow.
 ///
 /// This may either be Shared or Unique.
 pub trait RefType: private::Sealed + Copy {
-    fn _apply_once<'a, F1, F2, A, B>(
-        f: RefFn<'a, F1, F2, A, B>,
+    fn _apply_once<'a, 'b, F1, F2, A, B>(
+        f: RefFn<'a, 'b, F1, F2, A, B>,
         x: Ref<'a, A, Self>,
-    ) -> Ref<'a, B, Self>
+    ) -> Ref<'b, B, Self>
     where
-        F1: FnOnce(&'a A) -> &'a B,
-        F2: FnOnce(&'a mut A) -> &'a mut B;
+        F1: FnOnce(&'a A) -> &'b B,
+        F2: FnOnce(&'a mut A) -> &'b mut B;
 
-    fn _apply_mut<'a, F1, F2, A, B>(
-        f: &mut RefFn<'a, F1, F2, A, B>,
+    fn _apply_mut<'a, 'b, F1, F2, A, B>(
+        f: &mut RefFn<'a, 'b, F1, F2, A, B>,
         x: Ref<'a, A, Self>,
-    ) -> Ref<'a, B, Self>
+    ) -> Ref<'b, B, Self>
     where
-        F1: FnMut(&'a A) -> &'a B,
-        F2: FnMut(&'a mut A) -> &'a mut B;
+        F1: FnMut(&'a A) -> &'b B,
+        F2: FnMut(&'a mut A) -> &'b mut B;
 
-    fn _apply<'a, F1, F2, A, B>(
-        f: &RefFn<'a, F1, F2, A, B>,
+    fn _apply<'a, 'b, F1, F2, A, B>(
+        f: &RefFn<'a, 'b, F1, F2, A, B>,
         x: Ref<'a, A, Self>,
-    ) -> Ref<'a, B, Self>
+    ) -> Ref<'b, B, Self>
     where
-        F1: Fn(&'a A) -> &'a B,
-        F2: Fn(&'a mut A) -> &'a mut B;
+        F1: Fn(&'a A) -> &'b B,
+        F2: Fn(&'a mut A) -> &'b mut B;
 }
 
 pub trait IntoRef {
@@ -108,10 +108,10 @@ pub trait RefAccessors<Wrapped> {
     fn to_wrapped(self) -> Wrapped;
 }
 
-impl<'a, F1, F2, A: 'a, B: 'a> RefFn<'a, F1, F2, A, B>
+impl<'a, 'b, F1, F2, A, B> RefFn<'a, 'b, F1, F2, A, B>
 where
-    F1: FnOnce(&'a A) -> &'a B,
-    F2: FnOnce(&'a mut A) -> &'a mut B,
+    F1: FnOnce(&'a A) -> &'b B,
+    F2: FnOnce(&'a mut A) -> &'b mut B,
 {
     pub fn new(apply: F1, apply_mut: F2) -> Self {
         RefFn {
@@ -122,31 +122,31 @@ where
     }
 }
 
-impl<'a, F1, F2, A: 'a, B: 'a, T: RefType> FnOnce<(Ref<'a, A, T>,)> for RefFn<'a, F1, F2, A, B>
+impl<'a, 'b, F1, F2, A, B, T: RefType> FnOnce<(Ref<'a, A, T>,)> for RefFn<'a, 'b, F1, F2, A, B>
 where
-    F1: FnOnce(&'a A) -> &'a B,
-    F2: FnOnce(&'a mut A) -> &'a mut B,
+    F1: FnOnce(&'a A) -> &'b B,
+    F2: FnOnce(&'a mut A) -> &'b mut B,
 {
-    type Output = Ref<'a, B, T>;
+    type Output = Ref<'b, B, T>;
     #[inline(always)]
     extern "rust-call" fn call_once(self, args: (Ref<'a, A, T>,)) -> Self::Output {
         T::_apply_once(self, args.0)
     }
 }
-impl<'a, F1, F2, A: 'a, B: 'a, T: RefType> FnMut<(Ref<'a, A, T>,)> for RefFn<'a, F1, F2, A, B>
+impl<'a, 'b, F1, F2, A, B, T: RefType> FnMut<(Ref<'a, A, T>,)> for RefFn<'a, 'b, F1, F2, A, B>
 where
-    F1: FnMut(&'a A) -> &'a B,
-    F2: FnMut(&'a mut A) -> &'a mut B,
+    F1: FnMut(&'a A) -> &'b B,
+    F2: FnMut(&'a mut A) -> &'b mut B,
 {
     #[inline(always)]
     extern "rust-call" fn call_mut(&mut self, args: (Ref<'a, A, T>,)) -> Self::Output {
         T::_apply_mut(self, args.0)
     }
 }
-impl<'a, F1, F2, A: 'a, B: 'a, T: RefType> Fn<(Ref<'a, A, T>,)> for RefFn<'a, F1, F2, A, B>
+impl<'a, 'b, F1, F2, A, B, T: RefType> Fn<(Ref<'a, A, T>,)> for RefFn<'a, 'b, F1, F2, A, B>
 where
-    F1: Fn(&'a A) -> &'a B,
-    F2: Fn(&'a mut A) -> &'a mut B,
+    F1: Fn(&'a A) -> &'b B,
+    F2: Fn(&'a mut A) -> &'b mut B,
 {
     #[inline(always)]
     extern "rust-call" fn call(&self, args: (Ref<'a, A, T>,)) -> Self::Output {
@@ -156,32 +156,35 @@ where
 
 impl RefType for Shared {
     #[inline(always)]
-    fn _apply_once<'a, F1, F2, A, B>(f: RefFn<'a, F1, F2, A, B>, x: Ref<'a, A, Self>) -> Ref<'a, B, Self>
+    fn _apply_once<'a, 'b, F1, F2, A, B>(
+        f: RefFn<'a, 'b, F1, F2, A, B>,
+        x: Ref<'a, A, Self>,
+    ) -> Ref<'b, B, Self>
     where
-        F1: FnOnce(&'a A) -> &'a B,
-        F2: FnOnce(&'a mut A) -> &'a mut B,
+        F1: FnOnce(&'a A) -> &'b B,
+        F2: FnOnce(&'a mut A) -> &'b mut B,
     {
         Ref::new((f.apply)(x.as_ref()))
     }
     #[inline(always)]
-    fn _apply_mut<'a, F1, F2, A, B>(
-        f: &mut RefFn<'a, F1, F2, A, B>,
+    fn _apply_mut<'a, 'b, F1, F2, A, B>(
+        f: &mut RefFn<'a, 'b, F1, F2, A, B>,
         x: Ref<'a, A, Self>,
-    ) -> Ref<'a, B, Self>
+    ) -> Ref<'b, B, Self>
     where
-        F1: FnMut(&'a A) -> &'a B,
-        F2: FnMut(&'a mut A) -> &'a mut B,
+        F1: FnMut(&'a A) -> &'b B,
+        F2: FnMut(&'a mut A) -> &'b mut B,
     {
         Ref::new((f.apply)(x.as_ref()))
     }
     #[inline(always)]
-    fn _apply<'a, F1, F2, A, B>(
-        f: &RefFn<'a, F1, F2, A, B>,
+    fn _apply<'a, 'b, F1, F2, A, B>(
+        f: &RefFn<'a, 'b, F1, F2, A, B>,
         x: Ref<'a, A, Self>,
-    ) -> Ref<'a, B, Self>
+    ) -> Ref<'b, B, Self>
     where
-        F1: Fn(&'a A) -> &'a B,
-        F2: Fn(&'a mut A) -> &'a mut B,
+        F1: Fn(&'a A) -> &'b B,
+        F2: Fn(&'a mut A) -> &'b mut B,
     {
         Ref::new((f.apply)(x.as_ref()))
     }
@@ -189,35 +192,35 @@ impl RefType for Shared {
 
 impl RefType for Unique {
     #[inline(always)]
-    fn _apply_once<'a, F1, F2, A, B>(
-        f: RefFn<'a, F1, F2, A, B>,
+    fn _apply_once<'a, 'b, F1, F2, A, B>(
+        f: RefFn<'a, 'b, F1, F2, A, B>,
         mut x: Ref<'a, A, Self>,
-    ) -> Ref<'a, B, Self>
+    ) -> Ref<'b, B, Self>
     where
-        F1: FnOnce(&'a A) -> &'a B,
-        F2: FnOnce(&'a mut A) -> &'a mut B,
+        F1: FnOnce(&'a A) -> &'b B,
+        F2: FnOnce(&'a mut A) -> &'b mut B,
     {
         Ref::new((f.apply_mut)(x.as_mut()))
     }
     #[inline(always)]
-    fn _apply_mut<'a, F1, F2, A, B>(
-        f: &mut RefFn<'a, F1, F2, A, B>,
+    fn _apply_mut<'a, 'b, F1, F2, A, B>(
+        f: &mut RefFn<'a, 'b, F1, F2, A, B>,
         mut x: Ref<'a, A, Self>,
-    ) -> Ref<'a, B, Self>
+    ) -> Ref<'b, B, Self>
     where
-        F1: FnMut(&'a A) -> &'a B,
-        F2: FnMut(&'a mut A) -> &'a mut B,
+        F1: FnMut(&'a A) -> &'b B,
+        F2: FnMut(&'a mut A) -> &'b mut B,
     {
         Ref::new((f.apply_mut)(x.as_mut()))
     }
     #[inline(always)]
-    fn _apply<'a, F1, F2, A, B>(
-        f: &RefFn<'a, F1, F2, A, B>,
+    fn _apply<'a, 'b, F1, F2, A, B>(
+        f: &RefFn<'a, 'b, F1, F2, A, B>,
         mut x: Ref<'a, A, Self>,
-    ) -> Ref<'a, B, Self>
+    ) -> Ref<'b, B, Self>
     where
-        F1: Fn(&'a A) -> &'a B,
-        F2: Fn(&'a mut A) -> &'a mut B,
+        F1: Fn(&'a A) -> &'b B,
+        F2: Fn(&'a mut A) -> &'b mut B,
     {
         Ref::new((f.apply_mut)(x.as_mut()))
     }
