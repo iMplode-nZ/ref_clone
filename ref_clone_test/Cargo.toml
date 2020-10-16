@@ -6,4 +6,3 @@ edition = "2018"
 
 [dependencies]
 ref_clone = { path = "../ref_clone/" }
-ref_clone_derive = { path = "../ref_clone_derive/" }

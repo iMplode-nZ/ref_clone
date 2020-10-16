@@ -37,9 +37,8 @@
 #![feature(const_generics)]
 #![feature(arbitrary_self_types)]
 #![feature(generic_associated_types)]
-#![feature(unboxed_closures)]
-#![feature(fn_traits)]
 
+pub use ref_clone_derive::*;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::ops::DerefMut;
@@ -56,10 +55,11 @@ pub struct Ref<'a, T: ?Sized, S: RefType> {
 /// Shared Reference type.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Shared;
-// Unique Reference type.
+/// Unique Reference type.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Unique;
 
+/// A data structure to allow choosing either of `apply` or `apply_mut` to run depending on whether the ref is a Shared or a Unique ref.
 pub struct RefFn<F1, F2, A, B>
 where
     F1: FnOnce(&A) -> &B,
@@ -74,10 +74,7 @@ where
 ///
 /// This may either be Shared or Unique.
 pub trait RefType: private::Sealed + Copy {
-    fn _apply_once<F1, F2, A, B>(
-        f: RefFn<F1, F2, A, B>,
-        x: Ref<A, Self>,
-    ) -> Ref<B, Self>
+    fn _apply_once<F1, F2, A, B>(f: RefFn<F1, F2, A, B>, x: Ref<A, Self>) -> Ref<B, Self>
     where
         F1: FnOnce(&A) -> &B,
         F2: FnOnce(&mut A) -> &mut B;
@@ -119,28 +116,24 @@ where
 
 impl RefType for Shared {
     #[inline(always)]
-    fn _apply_once<F1, F2, A, B>(
-        f: RefFn<F1, F2, A, B>,
-        x: Ref<A, Self>,
-    ) -> Ref<B, Self>
+    fn _apply_once<F1, F2, A, B>(f: RefFn<F1, F2, A, B>, x: Ref<A, Self>) -> Ref<B, Self>
     where
         F1: FnOnce(&A) -> &B,
-        F2: FnOnce(&mut A) -> &mut B {
-            Ref::new((f.apply)(x.as_ref()))
-        }
+        F2: FnOnce(&mut A) -> &mut B,
+    {
+        Ref::new((f.apply)(x.as_ref()))
+    }
 }
 
 impl RefType for Unique {
     #[inline(always)]
-    fn _apply_once<F1, F2, A, B>(
-        f: RefFn<F1, F2, A, B>,
-        mut x: Ref<A, Self>,
-    ) -> Ref<B, Self>
+    fn _apply_once<F1, F2, A, B>(f: RefFn<F1, F2, A, B>, mut x: Ref<A, Self>) -> Ref<B, Self>
     where
         F1: FnOnce(&A) -> &B,
-        F2: FnOnce(&mut A) -> &mut B {
-            Ref::new((f.apply_mut)(x.as_mut()))
-        }
+        F2: FnOnce(&mut A) -> &mut B,
+    {
+        Ref::new((f.apply_mut)(x.as_mut()))
+    }
 }
 
 impl Shared {

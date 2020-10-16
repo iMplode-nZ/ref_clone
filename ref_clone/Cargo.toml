@@ -1,9 +1,10 @@
 [package]
 name = "ref_clone"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["iMplode nZ <rg@youxplode.com>"]
 edition = "2018"
 license = "MIT"
 description = "An implementation of borrows as higher kinded types that can be used to prevent code duplication."
 repository = "https://github.com/iMplode-nZ/ref_clone/"
 [dependencies]
+ref_clone_derive = "0.7.0"

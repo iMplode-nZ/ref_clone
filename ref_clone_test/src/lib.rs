@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use ref_clone::*;
-    use ref_clone_derive::RefAccessors;
+    use ref_clone::RefAccessors;
 
     #[RefAccessors]
     struct Foo {
@@ -45,15 +45,18 @@ mod tests {
     #[test]
     fn test_vec() {
         let mut foo = Foo { x: 13, y: vec![3] };
-        assert_eq!(
-            get_foo_vec_child(Unique::new(&mut foo)).as_mut()[0],
-            3
-        );
+        assert_eq!(get_foo_vec_child(Unique::new(&mut foo)).as_mut()[0], 3);
     }
 
     #[test]
     fn branch() {
-        let f = RefFn::<_, _, u8, _>::new(|a| a, |a: &mut u8| {*a += 1; a });
+        let f = RefFn::<_, _, u8, _>::new(
+            |a| a,
+            |a: &mut u8| {
+                *a += 1;
+                a
+            },
+        );
         assert_eq!(f.ap(Ref::new(&10)), Ref::new(&10));
     }
 
@@ -80,9 +83,7 @@ mod tests {
 
     #[test]
     fn main() {
-        let mut ex = Example {
-            value: 8
-        };
+        let mut ex = Example { value: 8 };
         {
             let ex_ref = Shared::new(&ex);
             println!("{}", get_example_value(ex_ref)); // = 8
