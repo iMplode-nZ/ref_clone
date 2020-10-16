@@ -54,8 +54,7 @@ mod tests {
     #[test]
     fn branch() {
         let f = RefFn::<_, _, u8, _>::new(|a| a, |a: &mut u8| {*a += 1; a });
-        assert_eq!(f.ap_mut(Ref::new(&mut 10)), Ref::new(&mut 11));
-        assert_eq!(f.ap_once(Ref::new(&10)), Ref::new(&10));
+        assert_eq!(f.ap(Ref::new(&10)), Ref::new(&10));
     }
 
     #[RefAccessors]

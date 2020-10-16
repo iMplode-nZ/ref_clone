@@ -81,22 +81,6 @@ pub trait RefType: private::Sealed + Copy {
     where
         F1: FnOnce(&A) -> &B,
         F2: FnOnce(&mut A) -> &mut B;
-
-    fn _apply_mut< 'a, F1, F2, A, B>(
-        f: &mut RefFn<F1, F2, A, B>,
-        x: Ref<'a, A, Self>,
-    ) -> Ref<'a, B, Self>
-    where
-        F1: FnMut(&A) -> &B,
-        F2: FnMut(&mut A) -> &mut B;
-
-    fn _apply<'a, F1, F2, A, B>(
-        f: &RefFn<F1, F2, A, B>,
-        x: Ref<'a, A, Self>,
-    ) -> Ref<'a, B, Self>
-    where
-        F1: Fn(&A) -> &B,
-        F2: Fn(&mut A) -> &mut B;
 }
 
 pub trait IntoRef {
@@ -128,28 +112,8 @@ where
     F2: FnOnce(&mut A) -> &mut B,
 {
     #[inline(always)]
-    pub fn ap_once<T: RefType>(self, x: Ref<'a, A, T>) -> Ref<'a, B, T> {
+    pub fn ap<T: RefType>(self, x: Ref<'a, A, T>) -> Ref<'a, B, T> {
         T::_apply_once(self, x)
-    }
-}
-impl<'a, F1, F2, A, B: 'a> RefFn<F1, F2, A, B>
-where
-    F1: FnMut(&A) -> &B,
-    F2: FnMut(&mut A) -> &mut B,
-{
-    #[inline(always)]
-    pub fn ap_mut<T: RefType>(&mut self, x: Ref<'a, A, T>) -> Ref<'a, B, T> {
-        T::_apply_mut(self, x)
-    }
-}
-impl<'a, F1, F2, A, B: 'a> RefFn<F1, F2, A, B>
-where
-    F1: Fn(&A) -> &B,
-    F2: Fn(&mut A) -> &mut B,
-{
-    #[inline(always)]
-    pub fn ap<T: RefType>(&self, x: Ref<'a, A, T>) -> Ref<'a, B, T> {
-        T::_apply(self, x)
     }
 }
 
@@ -164,26 +128,6 @@ impl RefType for Shared {
         F2: FnOnce(&mut A) -> &mut B {
             Ref::new((f.apply)(x.as_ref()))
         }
-    #[inline(always)]
-    fn _apply_mut< 'a, F1, F2, A, B>(
-        f: &mut RefFn<F1, F2, A, B>,
-        x: Ref<'a, A, Self>,
-    ) -> Ref<'a, B, Self>
-    where
-        F1: FnMut(&A) -> &B,
-        F2: FnMut(&mut A) -> &mut B {
-            Ref::new((f.apply)(x.as_ref()))
-        }
-    #[inline(always)]
-    fn _apply<'a, F1, F2, A, B>(
-        f: &RefFn<F1, F2, A, B>,
-        x: Ref<'a, A, Self>,
-    ) -> Ref<'a, B, Self>
-    where
-        F1: Fn(&A) -> &B,
-        F2: Fn(&mut A) -> &mut B {
-            Ref::new((f.apply)(x.as_ref()))
-        }
 }
 
 impl RefType for Unique {
@@ -195,26 +139,6 @@ impl RefType for Unique {
     where
         F1: FnOnce(&A) -> &B,
         F2: FnOnce(&mut A) -> &mut B {
-            Ref::new((f.apply_mut)(x.as_mut()))
-        }
-    #[inline(always)]
-    fn _apply_mut< 'a, F1, F2, A, B>(
-        f: &mut RefFn<F1, F2, A, B>,
-        mut x: Ref<'a, A, Self>,
-    ) -> Ref<'a, B, Self>
-    where
-        F1: FnMut(&A) -> &B,
-        F2: FnMut(&mut A) -> &mut B {
-            Ref::new((f.apply_mut)(x.as_mut()))
-        }
-    #[inline(always)]
-    fn _apply<'a, F1, F2, A, B>(
-        f: &RefFn<F1, F2, A, B>,
-        mut x: Ref<'a, A, Self>,
-    ) -> Ref<'a, B, Self>
-    where
-        F1: Fn(&A) -> &B,
-        F2: Fn(&mut A) -> &mut B {
             Ref::new((f.apply_mut)(x.as_mut()))
         }
 }
