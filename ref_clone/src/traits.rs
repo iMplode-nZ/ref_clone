@@ -19,7 +19,7 @@ where
 
 impl<'a, S: Iterator<Item = Ref<'a, I, Shared>>, I> Iterator for RefIterator<'a, Shared, S, I> {
     type Item = &'a I;
-
+    #[inline(always)]
     fn next(&mut self) -> Option<&'a I> {
         self.0.next().map(|x| x.as_ref())
     }
@@ -27,7 +27,7 @@ impl<'a, S: Iterator<Item = Ref<'a, I, Shared>>, I> Iterator for RefIterator<'a,
 
 impl<'a, S: Iterator<Item = Ref<'a, I, Unique>>, I> Iterator for RefIterator<'a, Unique, S, I> {
     type Item = &'a mut I;
-
+    #[inline(always)]
     fn next(&mut self) -> Option<&'a mut I> {
         self.0.next().map(|mut x| x.as_mut())
     }
@@ -37,9 +37,11 @@ pub trait IntoIteratorRef<'a> {
     type Item: 'a;
     type IntoIter<T: RefType>: Iterator<Item = Ref<'a, Self::Item, T>>;
     fn into_iter_ref<T: RefType>(self: Ref<'a, Self, T>) -> Self::IntoIter<T>;
+    #[inline(always)]
     fn iter(&'a self) -> RefIterator<'a, Shared, Self::IntoIter<Shared>, Self::Item> {
         RefIterator(Ref::new(self).into_iter_ref())
     }
+    #[inline(always)]
     fn iter_mut(&'a mut self) -> RefIterator<'a, Unique, Self::IntoIter<Unique>, Self::Item> {
         RefIterator(Ref::new(self).into_iter_ref())
     }
@@ -51,6 +53,7 @@ where
 {
     type Item = Ref<'a, S::Item, T>;
     type IntoIter = S::IntoIter<T>;
+    #[inline(always)]
     fn into_iter(self) -> S::IntoIter<T> {
         self.into_iter_ref()
     }

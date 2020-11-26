@@ -94,6 +94,7 @@ where
     F1: FnOnce(&A) -> &B,
     F2: FnOnce(&mut A) -> &mut B,
 {
+    #[inline(always)]
     pub fn new(apply: F1, apply_mut: F2) -> Self {
         RefFn {
             apply,
@@ -225,6 +226,7 @@ impl<'a, T: ?Sized, S: RefType> Ref<'a, T, S> {
 }
 
 impl<'a, T: std::fmt::Debug + ?Sized, S: RefType> std::fmt::Debug for Ref<'a, T, S> {
+    #[inline(always)]
     fn fmt(
         &self,
         formatter: &mut std::fmt::Formatter<'_>,
@@ -234,6 +236,7 @@ impl<'a, T: std::fmt::Debug + ?Sized, S: RefType> std::fmt::Debug for Ref<'a, T,
 }
 
 impl<'a, T: std::fmt::Display + ?Sized, S: RefType> std::fmt::Display for Ref<'a, T, S> {
+    #[inline(always)]
     fn fmt(
         &self,
         formatter: &mut std::fmt::Formatter<'_>,
@@ -260,6 +263,7 @@ pub use traits::*;
 impl<T> IndexRef<usize> for [T] {
     // Array ref
     type Output = T;
+    #[inline(always)]
     fn index_ref<'a, S: RefType>(self: Ref<'a, Self, S>, i: usize) -> Ref<'a, T, S> {
         unsafe { Ref::__new_unsafe(&self.value[i]) }
     }
@@ -268,6 +272,7 @@ impl<T> IndexRef<usize> for [T] {
 impl<T, const N: usize> IndexRef<usize> for [T; N] {
     // Array ref
     type Output = T;
+    #[inline(always)]
     fn index_ref<'a, S: RefType>(self: Ref<'a, Self, S>, i: usize) -> Ref<'a, T, S> {
         unsafe { Ref::__new_unsafe(&self.value[i]) }
     }
@@ -275,6 +280,7 @@ impl<T, const N: usize> IndexRef<usize> for [T; N] {
 
 impl<T> DerefRef for Box<T> {
     type Target = T;
+    #[inline(always)]
     fn deref_ref<'a, S: RefType>(self: Ref<'a, Self, S>) -> Ref<'a, T, S> {
         unsafe { Ref::__new_unsafe(self.as_ref().deref()) }
     }
@@ -287,6 +293,7 @@ pub struct RefIter<'a, T, S: RefType> {
 
 impl<'a, T, S: RefType> Iterator for RefIter<'a, T, S> {
     type Item = Ref<'a, T, S>;
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
             match self.iter.next() {
@@ -300,6 +307,7 @@ impl<'a, T, S: RefType> Iterator for RefIter<'a, T, S> {
 impl<'a, T: 'a> IntoIteratorRef<'a> for [T] {
     type Item = T;
     type IntoIter<S: RefType> = RefIter<'a, T, S>;
+    #[inline(always)]
     fn into_iter_ref<S: RefType>(self: Ref<'a, Self, S>) -> Self::IntoIter<S> {
         RefIter {
             iter: self.as_ref().into_iter(),
@@ -311,6 +319,7 @@ impl<'a, T: 'a> IntoIteratorRef<'a> for [T] {
 impl<'a, T: 'a, const N: usize> IntoIteratorRef<'a> for [T; N] {
     type Item = T;
     type IntoIter<S: RefType> = RefIter<'a, T, S>;
+    #[inline(always)]
     fn into_iter_ref<S: RefType>(self: Ref<'a, Self, S>) -> Self::IntoIter<S> {
         RefIter {
             iter: self.as_ref().into_iter(),
