@@ -20,7 +20,7 @@ dependencies = [
 
 [[package]]
 name = "ref_clone"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "ref_clone_derive 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
